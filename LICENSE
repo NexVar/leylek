@@ -1,0 +1,32 @@
+PROPRIETARY LICENSE
+
+Copyright (c) 2026 NexVar. All rights reserved.
+
+This software and all associated files (the "Software") are proprietary
+and confidential property of NexVar. The Software is published in this
+repository solely for evaluation by the hackathon jury and other parties
+explicitly authorized by NexVar.
+
+The following actions are strictly prohibited without prior written
+permission from NexVar:
+
+  1. Copying, modifying, merging, publishing, distributing, sublicensing,
+     or selling copies of the Software, in whole or in part.
+  2. Reverse engineering, decompiling, or disassembling the Software.
+  3. Using the Software, or any portion of it, for any commercial purpose.
+  4. Creating derivative works based on the Software.
+  5. Removing or altering any copyright notices or proprietary markings.
+
+The Software is provided "AS IS", without warranty of any kind, express
+or implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose, and non-infringement. In no event shall
+the authors or copyright holders be liable for any claim, damages, or other
+liability, whether in an action of contract, tort, or otherwise, arising
+from, out of, or in connection with the Software or the use or other
+dealings in the Software.
+
+The visibility of this repository (public during jury evaluation) does not
+constitute an open-source license. All rights are reserved by NexVar.
+
+For licensing or commercial inquiries, please open an issue on the GitHub
+repository or contact NexVar through official channels.

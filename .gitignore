@@ -1,0 +1,84 @@
+# Leylek — .gitignore
+# This file is committed. Secrets are NEVER committed — see .env handling below.
+
+# --- Dependencies ---
+node_modules/
+.pnpm-store/
+
+# --- Build outputs ---
+dist/
+build/
+.output/
+.vercel/
+.netlify/
+.wrangler/
+.cache/
+.turbo/
+
+# --- Cloudflare ---
+.dev.vars
+.dev.vars.*
+wrangler.toml.local
+.mf/
+
+# --- Environment & secrets (NEVER commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*-secrets.json
+*credentials*.json
+*service-account*.json
+*service_account*.json
+gcp-*.json
+google-*.json
+meta-*.json
+firebase-*.json
+*.p12
+*.pfx
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Testing / coverage ---
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+.playwright/
+
+# --- TypeScript ---
+*.tsbuildinfo
+.tsbuildinfo
+
+# --- Drizzle migrations (lockfile only; meta is gitignored) ---
+drizzle/meta/
+
+# --- Local notes (kept out of jury view) ---
+.notes/
+SCRATCH.md
+TODO.local.md
+
+# --- Temp ---
+*.tmp
+*.bak
+*.bak.*
