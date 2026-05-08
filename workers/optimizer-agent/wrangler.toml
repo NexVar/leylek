@@ -1,0 +1,38 @@
+name = "leylek-optimizer-agent"
+main = "src/index.ts"
+compatibility_date = "2026-05-19"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# Durable Object — per-campaign agent state
+[[durable_objects.bindings]]
+name = "CAMPAIGN_AGENT"
+class_name = "CampaignAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CampaignAgent"]
+
+# Cron — every 6 hours in production
+[triggers]
+crons = ["0 */6 * * *"]
+
+# D1 + KV — fill after creation
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "leylek-prod"
+# database_id = "<set-after-d1-create>"
+
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "<set-after-kv-create>"
+
+# Service binding to publisher-agent for atomic action delegation
+# [[services]]
+# binding = "PUBLISHER_AGENT"
+# service = "leylek-publisher-agent"
+
+# Secrets:
+#   GEMINI_API_KEY
