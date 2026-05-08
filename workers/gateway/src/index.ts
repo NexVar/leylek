@@ -12,7 +12,7 @@ import { cors } from 'hono/cors';
 import type { Env } from './env';
 import { authRoutes } from './routes/auth';
 import { campaignRoutes } from './routes/campaigns';
-import { connectRoutes } from './routes/connect';
+import { adAccountRoutes } from './routes/connect';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -34,7 +34,7 @@ app.get('/api/health', (c) =>
 );
 
 app.route('/api/auth', authRoutes);
-app.route('/api/connect', connectRoutes);
+app.route('/api/auth', adAccountRoutes);
 app.route('/api/campaigns', campaignRoutes);
 
 app.notFound((c) => c.json({ error: 'not found' }, 404));
