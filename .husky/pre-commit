@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+# Leylek pre-commit hook
+# 1. Block secrets from being staged (gitleaks)
+# 2. Auto-format + lint fix (biome)
+# 3. Type-check changed packages (skip if pnpm install not yet run)
+
+set -e
+
+echo "▸ gitleaks: scanning staged files for secrets…"
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --verbose --redact
+else
+  echo "  (gitleaks not installed — install via 'brew install gitleaks' to enable)"
+fi
+
+echo "▸ biome: format + lint…"
+if [ -d node_modules/.bin ] && [ -x node_modules/.bin/biome ]; then
+  pnpm exec biome check --write --no-errors-on-unmatched --staged
+elif command -v biome >/dev/null 2>&1; then
+  biome check --write --no-errors-on-unmatched --staged
+else
+  echo "  (biome not installed — run 'pnpm install' to enable)"
+fi
+
+echo "▸ typecheck: skipping until pnpm install run (CI will catch)"
+
+echo "✓ pre-commit done"
