@@ -1,0 +1,48 @@
+name = "leylek-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-05-19"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[vars]
+APP_URL = "http://localhost:5173"
+
+# D1 — uncomment and fill after `wrangler d1 create leylek-prod`
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "leylek-prod"
+# database_id = "<set-after-d1-create>"
+# migrations_dir = "../../packages/db/migrations"
+
+# KV — uncomment and fill after `wrangler kv namespace create leylek-kv`
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "<set-after-kv-create>"
+
+# Service bindings — uncomment as each worker deploys
+# [[services]]
+# binding = "CONTENT_AGENT"
+# service = "leylek-content-agent"
+#
+# [[services]]
+# binding = "OPTIMIZER_AGENT"
+# service = "leylek-optimizer-agent"
+#
+# [[services]]
+# binding = "PUBLISHER_AGENT"
+# service = "leylek-publisher-agent"
+#
+# [[services]]
+# binding = "ANALYTICS_WORKER"
+# service = "leylek-analytics-worker"
+
+# Secrets (set via `wrangler secret put <NAME> --name leylek-gateway`):
+#   GOOGLE_OAUTH_CLIENT_ID
+#   GOOGLE_OAUTH_CLIENT_SECRET
+#   JWT_SECRET
+#   AES_KEY_BASE
+#   RESEND_API_KEY
+#   META_APP_ID
+#   META_APP_SECRET
