@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 // Vite 8 (Rolldown bundler by default) + React 19 + Tailwind v4.
 // Tailwind v4 uses CSS-first config — there is no tailwind.config.js.

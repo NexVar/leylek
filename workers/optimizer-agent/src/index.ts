@@ -24,7 +24,9 @@ app.get('/api/health', (c) =>
 
 app.post('/internal/optimize/:campaignId', async (c) => {
   const campaignId = c.req.param('campaignId');
-  const doStub = c.env.CAMPAIGN_AGENT.get(c.env.CAMPAIGN_AGENT.idFromName(`campaign-${campaignId}`));
+  const doStub = c.env.CAMPAIGN_AGENT.get(
+    c.env.CAMPAIGN_AGENT.idFromName(`campaign-${campaignId}`),
+  );
   const response = await doStub.fetch('https://internal/run-optimization', {
     method: 'POST',
     body: JSON.stringify({ campaignId }),
@@ -37,7 +39,7 @@ app.post('/internal/optimize/:campaignId', async (c) => {
 
 export default {
   fetch: app.fetch.bind(app),
-  async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
+  async scheduled(_controller: ScheduledController, _env: Env, _ctx: ExecutionContext) {
     // TODO:
     //   1. Query D1 for all active campaigns
     //   2. For each, instantiate Campaign DO and fire optimization

@@ -36,7 +36,7 @@ interface CampaignState {
 }
 
 export class CampaignAgent extends DurableObject<Env> {
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === '/run-optimization') {
