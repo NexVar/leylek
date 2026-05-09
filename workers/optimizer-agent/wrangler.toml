@@ -19,15 +19,14 @@ new_sqlite_classes = ["CampaignAgent"]
 [triggers]
 crons = ["0 */6 * * *"]
 
-# D1 + KV — fill after creation
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "leylek-prod"
-# database_id = "<set-after-d1-create>"
+[[d1_databases]]
+binding = "DB"
+database_name = "leylek-prod"
+database_id = "c20b810d-f5a9-464d-9fa9-8a33101948f7"
 
-# [[kv_namespaces]]
-# binding = "KV"
-# id = "<set-after-kv-create>"
+[[kv_namespaces]]
+binding = "KV"
+id = "e9c37be505844e1dbdb0b83b8311ed17"
 
 # Service binding to publisher-agent for atomic action delegation
 # [[services]]
