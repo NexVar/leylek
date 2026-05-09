@@ -107,10 +107,10 @@ Yaratıcı kısım (content-agent) + finansal karar kısmı (optimizer-agent) ay
 | 0–10 | Login → Dashboard açılır | 3 reklam yan yana, spend chart, ad 1 "zararda" badge |
 | 10–20 | "Şimdi Optimize Et" tıklanır | optimizer-agent cron'u zorla tetiklenir |
 | 20–45 | Gemini reasoning canlı streaming | "ad 1'in CPA'sı 4× ortalama, kapatıyorum, bütçeyi ad 2'ye kaydırıyorum" |
-| 45–55 | publisher-agent gerçek Meta API call | "API call sent → Meta returned success" |
+| 45–55 | publisher-agent simulator client `pauseAd` çağrısı (production code path runtime-swappable) | "simulator confirmed pause + budget reallocation" |
 | 55–60 | agent_logs timeline güncellenir, ad 1 "PAUSED" | Karar logu ekrana düşer |
 
-Demo sırasında **hiçbir hop mock değil** — Gemini gerçek call, Meta API gerçek pause çağrısı. Sadece historical state (48h geçmiş metric) seedlidir.
+Demo sırasında **Gemini reasoning + Campaign DO atomic execution + agent_logs persistence + Cloudflare runtime gerçek** çalışır. Ad platform hop'u runtime `LEYLEK_AD_PLATFORM=sim` flag'iyle simulator client'a gider; production code path (`RealGoogleAdsClient`) tamamen yazılı ve `LEYLEK_AD_PLATFORM=real` ile Google Ads API'sine gerçek çağrı atar (Faz 2 — dev token Standard access onayı sonrası). Detay §10.
 
 ---
 
@@ -173,7 +173,7 @@ Leylek bu kuralı **3 belirgin ajan + 2 destek Worker + 1 Durable Object** ile k
 | `gateway` | Orkestrator | API entry, auth, routing, façade | — |
 | **`content-agent`** | **Agent** | URL parse, audience extraction, 3 reklam varyantı üretimi (Agresif / Hikaye / Teknik) | 2.5 Pro |
 | **`optimizer-agent`** | **Agent** | Metric oku, pause/keep/realloc kararı + structured gerekçe | 2.5 Pro |
-| **`publisher-agent`** | **Agent** | Meta + Google Ads gerçek API aksiyonu | — |
+| **`publisher-agent`** | **Agent** | Port + adapter pattern; `RealGoogleAdsClient` (production) + `SimulatedAdsClient` (demo) — `LEYLEK_AD_PLATFORM` env flag'iyle swap. Meta için stub interface (Faz 2 implementation) | — |
 | `analytics-worker` | Destek | Meta/Google API'den metric çek, D1'e yaz | (opsiyonel 2.5 Flash haftalık özet) |
 
 ### Durable Object: `CampaignAgent`
@@ -515,76 +515,141 @@ Repo'da, branch'lerde, log'larda **hiç** görünmez.
 
 ---
 
-## 10. Real Integrations + Seeding Stratejisi
+## 10. Production-Ready Code + Demo Simulator Stratejisi
 
-**Jüri kuralı:** mock veri yok, her hop gerçek API. Sandbox spend otomatik üretmediği için bir kerelik **seeding** ile demo state hazırlanır; seeding de gerçek API çağrılarıyla yapılır.
+**Hackathon context:** Meta App Review (2-4 hafta) ve Google Ads developer token Standard access (1-2 hafta) onay süreçleri hackathon timeline'ına sığmıyor. Bu kısıt **demo'yu fakirleştirmemek için**: production-ready gerçek ad platform kodu repo'da çalışıyor; demo runtime, aynı kodu in-memory simulator adapter'ı üzerinden koşturuyor. Flip 1 satır env flag.
 
-### Hangi API gerçek, hangi data seeded
+### Port + Adapter Pattern
 
-| Hop | Tip | Detay |
-|---|---|---|
-| Google OAuth | Gerçek | Demo öncesi bir kez user OAuth flow, refresh token D1'e AES-encrypted |
-| Meta Marketing API sandbox | Gerçek | Campaign + ad create gerçek call. Test ad account `act_XXX` |
-| Google Ads test account | Gerçek | Campaign + ad create gerçek call. Test customer 10-haneli |
-| Meta Conversions API | Gerçek | Test conversion event upload gerçek POST. Pixel ID + event code ile |
-| Gemini 2.5 Pro/Flash | Gerçek | Her content + optimizer karar gerçek call |
-| Spend / CPA history (`metric_snapshots`) | Seeded | Sandbox spend üretmediğinden 48h geçmiş manuel INSERT |
-
-### `scripts/seed-demo-data.ts` özet
+`publisher-agent` ve `analytics-worker` aynı interface'i tüketir:
 
 ```typescript
-async function seedDemoData() {
-  // 1. Demo user
+// packages/shared-types/src/ad-platform.ts
+export interface AdPlatformClient {
+  createCampaign(input: CreateCampaignInput): Promise<{ externalId: string }>;
+  createAd(input: CreateAdInput): Promise<{ externalId: string }>;
+  pauseAd(externalId: string, reason: string): Promise<void>;
+  updateBudget(externalId: string, newBudgetKurus: number): Promise<void>;
+  fetchMetrics(externalId: string, windowHours: number): Promise<MetricWindow>;
+}
+```
+
+İki concrete implementation:
+
+#### `RealGoogleAdsClient` (production code, repo'da committed)
+
+- Real Google Ads API çağrıları:
+  - `customers:listAccessibleCustomers`
+  - `customers/{id}/googleAds:search` (metric query, GAQL)
+  - `customers/{id}/campaigns:mutate` (create / pause / budget update)
+  - `customers/{id}/adGroupAds:mutate`
+- OAuth refresh token rotation: `oauth2/v4/token` ile expired access token yenile
+- Rate limit + exponential backoff
+- Error mapping → typed `AdPlatformError`
+
+#### `SimulatedAdsClient` (demo runtime)
+
+- Aynı interface, in-memory state
+- State per demo user → Cloudflare KV (TTL: 24h) veya Campaign DO
+- Realistic metric curves önceden hazırlanmış (ad 1 zarar curve, ad 2 başarı curve, ad 3 marjinal curve) — 48 saatlik time series
+- API latency simulate (50-200ms jitter)
+- `createCampaign` / `createAd` benzersiz `sim_<uuid>` external_id döner
+
+#### Meta için stub
+
+Faz 1'de `RealMetaAdsClient` yazılmaz — interface conform `MetaAdsClient` stub class olur (her metot `throw new Error('Meta integration ships in Faz 2')`). Faz 2'de gerçek implementasyon eklenir. Bu sayede multi-platform routing layer (`PlatformRouter`) yapısı bugünden Faz 2'ye hazırdır.
+
+### Feature Flag
+
+Cloudflare Workers env:
+
+```
+LEYLEK_AD_PLATFORM=sim       # Demo / dev runtime
+LEYLEK_AD_PLATFORM=real      # Production runtime (dev token approval sonrası)
+```
+
+`publisher-agent` ve `analytics-worker` factory:
+
+```typescript
+function makeClient(env: Env): AdPlatformClient {
+  if (env.LEYLEK_AD_PLATFORM === 'real') {
+    return new RealGoogleAdsClient(env);
+  }
+  return new SimulatedAdsClient(env);
+}
+```
+
+Default `sim` (production deploy'da bilinçli `real` set edilmediyse demo mode kal). `wrangler.toml`'da `[vars] LEYLEK_AD_PLATFORM = "sim"`.
+
+### Demo vs Production karşılaştırma
+
+| Katman | Demo (sim mode) | Production (real mode) |
+|---|---|---|
+| Frontend UI | Gerçek React + Vite + Tailwind | Aynı |
+| Gateway routing + auth | Gerçek Hono Worker | Aynı |
+| Google OAuth login | Gerçek (Google Identity) | Aynı |
+| Magic Link via Resend | Gerçek (Resend API) | Aynı |
+| `content-agent` Gemini 2.5 Pro çağrısı | Gerçek | Aynı |
+| `optimizer-agent` Gemini 2.5 Pro decision | Gerçek | Aynı |
+| Campaign Durable Object atomic state | Gerçek | Aynı |
+| `agent_logs` D1 persistence | Gerçek | Aynı |
+| `publisher-agent` action layer | `SimulatedAdsClient` (in-memory) | `RealGoogleAdsClient` (Google Ads API HTTP call) |
+| Metric data source | Pre-seeded sim curves | Gerçek Google Ads `googleAds:search` insights |
+
+**Multi-agent narrative + Gemini reasoning + DO + log timeline farkı sıfır.** Tek farklı hop: external HTTP call vs internal state mutation.
+
+### Jüri için defansif pitch cümlesi
+
+> "Production code'umuz Google Ads API'nin gerçek implementasyonu — `workers/publisher-agent/src/clients/real-google-ads.ts`'i okuyun. Demo şu anda simulator mode'da çünkü Google Ads developer token Standard access onayı 2-4 hafta sürüyor ve hackathon süresine sığmıyor. Production'da `LEYLEK_AD_PLATFORM=real` Workers Secret'iyle tek satır flip — agent'lar aynı kararları gerçek Google Ads API çağrılarıyla execute eder. Meta için aynı pattern Faz 2'de devreye alınacak; interface bugünden hazır."
+
+### `scripts/seed-demo-data.ts` — sim mode
+
+```typescript
+async function seedDemoData(env: Env) {
+  const platform = env.LEYLEK_AD_PLATFORM ?? 'sim';
+  const client: AdPlatformClient = platform === 'real'
+    ? new RealGoogleAdsClient(env)
+    : new SimulatedAdsClient(env);
+
+  // 1. Demo user (Google OAuth tokens prep edilmiş veya magic-link bypass)
   const user = await db.insert(users).values({
     email: 'demo@leylek.app',
     provider: 'google',
-    provider_sub: '<real-google-sub>',
+    providerSub: '<real-google-sub-after-first-real-oauth>',
     name: 'Demo Kullanıcı',
   });
 
-  // 2. Connected accounts (gerçek tokens)
-  await db.insert(connected_accounts).values([
-    { user_id: user.id, provider: 'meta', external_id: META_TEST_AD_ACCOUNT_ID, ... },
-    { user_id: user.id, provider: 'google_ads', external_id: GOOGLE_ADS_TEST_CUSTOMER_ID, ... },
-  ]);
+  // 2. Connected account (sim mode: placeholder external_id)
+  await db.insert(connectedAccounts).values({
+    userId: user.id,
+    provider: 'google_ads',
+    externalId: platform === 'real' ? GOOGLE_ADS_TEST_CUSTOMER_ID : 'sim_customer_001',
+    status: 'active',
+  });
 
-  // 3. Campaign (gerçek API)
-  const metaCampaign = await metaApi.createCampaign({ ... });
-  const googleCampaign = await googleAdsApi.createCampaign({ ... });
+  // 3. Campaign — client.createCampaign her iki mode'da aynı kod
+  const { externalId: campExtId } = await client.createCampaign({
+    name: 'Demo — MazeStore Akıllı Su Şişesi',
+    dailyBudgetKurus: 100000, // 1000 TRY
+  });
   const campaign = await db.insert(campaigns).values({ ... });
 
-  // 4. 3 reklam variant (gerçek API)
+  // 4. 3 reklam variant
   const variants = await Promise.all([
-    metaApi.createAd({ strategy: 'AGGRESSIVE', ... }),
-    metaApi.createAd({ strategy: 'STORY', ... }),
-    metaApi.createAd({ strategy: 'TECHNICAL', ... }),
+    client.createAd({ strategy: 'AGGRESSIVE', ... }),
+    client.createAd({ strategy: 'STORY', ... }),
+    client.createAd({ strategy: 'TECHNICAL', ... }),
   ]);
 
-  // 5. Meta Conversions API: 48h geçmiş events (gerçek POST)
-  for (const hourOffset of range(48)) {
-    await metaConversionsApi.uploadEvent({
-      event_name: 'Purchase',
-      event_time: now - hourOffset * 3600,
-      test_event_code: META_TEST_EVENT_CODE,
-      ...
-    });
-  }
-
-  // 6. metric_snapshots seed
-  for (const ad of variants) {
-    for (const hourOffset of range(48)) {
-      await db.insert(metric_snapshots).values({
-        ad_id: ad.id,
-        snapshot_at: now - hourOffset * 3600,
-        spend_kurus: SIMULATED_SPEND[ad.strategy][hourOffset],
-        ...
-      });
-    }
+  // 5. metric_snapshots seed — sim curves
+  //    (real mode'da analytics-worker periyodik çekecek, seed'e gerek yok)
+  if (platform === 'sim') {
+    await seedMetricCurves(variants);
   }
 }
 ```
 
-Seeding bir kez çalışır, prod D1'e yazar, demo gününe kadar orada kalır. Demo akışında canlı olarak çalışan kısım: `optimizer-agent` (Gemini call) + `publisher-agent` (Meta pause call).
+Tek script, env flag ile mode select. Hackathon kapsamında `sim`, dev token onayı sonrası `real` flip.
 
 ---
 
@@ -736,8 +801,8 @@ MVP'de billing entegrasyonu yok; demo'da seed user "Usta plan aktif" görünür.
 
 | Risk | Olasılık | Etki | Azaltma |
 |---|---|---|---|
-| Meta App Review red / gecikme | Yüksek | Demo bloklar | Sandbox + Testers listesinde demo user; Standard access post-demo |
-| Google Ads dev_token Standard gecikme | Orta | Sadece prod scale bloklar | Test access ile demo; Standard sonra |
+| Meta App Review red / gecikme | Mitigated | Demo bloklamıyor | Faz 2 — şu an sim adapter, real `MetaAdsClient` stub interface ile §10'da hazır |
+| Google Ads dev_token Standard gecikme | Mitigated | Demo bloklamıyor | `LEYLEK_AD_PLATFORM=sim` demo runtime; `RealGoogleAdsClient` production code repo'da, token onayı sonrası flag flip |
 | Gemini quota tükenme | Orta | Demo'da Gemini fail | Pre-demo quota kontrolü; Flash fallback hazır |
 | Cloudflare D1 write rate limit | Düşük | analytics-worker yavaşlar | Batch insert, KV cache layer |
 | Demo gününde wifi/Meta API outage | Düşük | Demo akışı kırılır | Pre-recorded backup video + offline screencast |
@@ -748,11 +813,17 @@ MVP'de billing entegrasyonu yok; demo'da seed user "Usta plan aktif" görünür.
 ## 17. Yol Haritası
 
 ### Faz 1 — Hackathon MVP (mevcut sprint)
-Meta Ads + Google Ads entegrasyonu, Co-Pilot + Otopilot canlı, demo seed, jüri sunumu.
+- Multi-agent mimari (5 Worker + Campaign DO) tam çalışır
+- Google Ads `RealGoogleAdsClient` production code + `SimulatedAdsClient` adapter
+- Meta `MetaAdsClient` stub interface (Faz 2'de implementasyon)
+- Co-Pilot + Otopilot her iki mod canlı
+- Demo runtime `LEYLEK_AD_PLATFORM=sim`
+- Demo seed (sim mode), jüri sunumu
+- E2E agent-browser test passing on deployed URL
 
 ### Faz 2 — İlk 100 Kullanıcı (3-6 ay post-hackathon)
-- Meta App Review production approval
-- Google Ads Standard developer_token
+- Google Ads developer_token Standard access → `LEYLEK_AD_PLATFORM=real` flip
+- Meta App Review production approval → `RealMetaAdsClient` implementation behind same interface
 - TikTok Ads entegrasyonu
 - Billing sistemi (Iyzico veya Stripe)
 - Multi-account-per-user
@@ -779,4 +850,6 @@ Meta Ads + Google Ads entegrasyonu, Co-Pilot + Otopilot canlı, demo seed, jüri
 
 ---
 
-**Sürüm geçmişi:** v1.0 — initial document (2026-05-19)
+**Sürüm geçmişi:**
+- v1.1 — Port + adapter pattern for ad platform (sim/real swap via `LEYLEK_AD_PLATFORM`); demo runtime in sim mode; Meta moved to Faz 2; risk table updated (2026-05-19)
+- v1.0 — initial document (2026-05-19)
