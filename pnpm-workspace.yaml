@@ -2,3 +2,19 @@ packages:
   - "apps/*"
   - "workers/*"
   - "packages/*"
+
+# Postinstall script allow-list (pnpm v11+, replaces the deprecated
+# onlyBuiltDependencies key). Each package below is explicitly reviewed:
+#   - esbuild              — Vite 8 hard dep, downloads native binary
+#   - workerd              — Cloudflare Workers runtime, native binary
+#   - "@tailwindcss/oxide" — Tailwind v4 Rust engine, native binary
+#   - sharp                — libvips bindings, pulled by some Vite plugins
+# Packages set to false are pure-JS and need no postinstall — listed
+# explicitly so the deps-check stays honest and stops nagging.
+allowBuilds:
+  esbuild: true
+  workerd: true
+  "@tailwindcss/oxide": true
+  sharp: true
+  "@google/genai": false
+  protobufjs: false
