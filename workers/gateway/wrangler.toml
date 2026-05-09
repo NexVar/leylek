@@ -9,17 +9,15 @@ enabled = true
 [vars]
 APP_URL = "http://localhost:5173"
 
-# D1 — uncomment and fill after `wrangler d1 create leylek-prod`
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "leylek-prod"
-# database_id = "<set-after-d1-create>"
-# migrations_dir = "../../packages/db/migrations"
+[[d1_databases]]
+binding = "DB"
+database_name = "leylek-prod"
+database_id = "c20b810d-f5a9-464d-9fa9-8a33101948f7"
+migrations_dir = "../../packages/db/migrations"
 
-# KV — uncomment and fill after `wrangler kv namespace create leylek-kv`
-# [[kv_namespaces]]
-# binding = "KV"
-# id = "<set-after-kv-create>"
+[[kv_namespaces]]
+binding = "KV"
+id = "e9c37be505844e1dbdb0b83b8311ed17"
 
 # Service bindings — uncomment as each worker deploys
 # [[services]]
