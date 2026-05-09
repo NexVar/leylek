@@ -27,7 +27,7 @@ app.post('/internal/refresh/:campaignId', async (c) => {
 
 export default {
   fetch: app.fetch.bind(app),
-  async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
+  async scheduled(_controller: ScheduledController, _env: Env, _ctx: ExecutionContext) {
     // TODO:
     //   1. Select campaigns where status = 'active'
     //   2. For each, fetch Meta insights + Google Ads metrics in parallel

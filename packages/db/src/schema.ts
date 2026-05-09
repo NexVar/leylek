@@ -6,14 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import {
-  index,
-  integer,
-  real,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ---------------------------------------------------------------------------
 // users — login identity
@@ -30,9 +23,7 @@ export const users = sqliteTable(
     /** Google sub or email-for-magic-link */
     providerSub: text('provider_sub').notNull(),
     companyName: text('company_name'),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
+    createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     lastLoginAt: text('last_login_at'),
   },
   (table) => ({
@@ -64,9 +55,7 @@ export const connectedAccounts = sqliteTable(
     scopes: text('scopes'),
     /** 'active' | 'expired' | 'revoked' */
     status: text('status').notNull().default('active'),
-    connectedAt: text('connected_at')
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
+    connectedAt: text('connected_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     lastUsedAt: text('last_used_at'),
   },
   (table) => ({
@@ -95,12 +84,8 @@ export const campaigns = sqliteTable('campaigns', {
   status: text('status').notNull().default('active'),
   /** Durable Object instance identifier */
   doId: text('do_id'),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ---------------------------------------------------------------------------
@@ -125,12 +110,8 @@ export const ads = sqliteTable('ads', {
   cpaKurus: integer('cpa_kurus'),
   /** CTR x 10000 — e.g. 250 = 2.5% */
   ctrBasisPoints: integer('ctr_basis_points'),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // ---------------------------------------------------------------------------
@@ -155,9 +136,7 @@ export const agentLogs = sqliteTable(
     confidence: real('confidence'),
     /** Audit trail for the Gemini call */
     geminiRequestId: text('gemini_request_id'),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`CURRENT_TIMESTAMP`),
+    createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
     campaignTimeIdx: index('idx_agent_logs_campaign_time').on(table.campaignId, table.createdAt),
@@ -202,9 +181,7 @@ export const notifications = sqliteTable('notifications', {
   payloadJson: text('payload_json').notNull(),
   /** 'pending' | 'approved' | 'rejected' */
   status: text('status').notNull().default('pending'),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   resolvedAt: text('resolved_at'),
 });
 

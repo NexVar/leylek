@@ -28,7 +28,11 @@ Constraints:
   - No emojis in ad text (Turkish SMB audience finds them unprofessional).
 `;
 
-export const CONTENT_AGENT_USER = (productUrl: string, scrapedContent: string, dailyBudgetTry: number) => `
+export const CONTENT_AGENT_USER = (
+  productUrl: string,
+  scrapedContent: string,
+  dailyBudgetTry: number,
+) => `
 Product URL: ${productUrl}
 Daily budget (TRY): ${dailyBudgetTry.toFixed(2)}
 
