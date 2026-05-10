@@ -6,6 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
+# Demo runtime defaults to simulator client in publisher-agent; flip to "real"
+# in production (PRD §10) once Google Ads dev_token Standard access lands.
+[vars]
+LEYLEK_AD_PLATFORM = "sim"
+
 # Durable Object — per-campaign agent state
 [[durable_objects.bindings]]
 name = "CAMPAIGN_AGENT"
@@ -29,9 +34,9 @@ binding = "KV"
 id = "e9c37be505844e1dbdb0b83b8311ed17"
 
 # Service binding to publisher-agent for atomic action delegation
-# [[services]]
-# binding = "PUBLISHER_AGENT"
-# service = "leylek-publisher-agent"
+[[services]]
+binding = "PUBLISHER_AGENT"
+service = "leylek-publisher-agent"
 
 # Secrets:
 #   GEMINI_API_KEY
