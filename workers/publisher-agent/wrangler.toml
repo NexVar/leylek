@@ -8,6 +8,17 @@ enabled = true
 
 [vars]
 META_API_VERSION = "v21.0"
+LEYLEK_AD_PLATFORM = "sim"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leylek-prod"
+database_id = "c20b810d-f5a9-464d-9fa9-8a33101948f7"
+migrations_dir = "../../packages/db/migrations"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "e9c37be505844e1dbdb0b83b8311ed17"
 
 # Secrets:
 #   META_APP_ID
@@ -16,3 +27,4 @@ META_API_VERSION = "v21.0"
 #   GOOGLE_OAUTH_CLIENT_ID
 #   GOOGLE_OAUTH_CLIENT_SECRET
 #   AES_KEY_BASE  (for decrypting connected_account tokens)
+#   GOOGLE_ADS_LOGIN_CUSTOMER_ID  (real mode only; 10-digit MCC)
