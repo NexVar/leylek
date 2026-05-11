@@ -8,6 +8,8 @@ enabled = true
 
 [vars]
 META_API_VERSION = "v21.0"
+# Default to sim; flip to "real" once Google Ads dev_token Standard access lands (PRD §10).
+LEYLEK_AD_PLATFORM = "sim"
 
 # Cron — every 15 minutes in production
 [triggers]
@@ -17,6 +19,12 @@ crons = ["*/15 * * * *"]
 binding = "DB"
 database_name = "leylek-prod"
 database_id = "c20b810d-f5a9-464d-9fa9-8a33101948f7"
+
+# KV — sim metric snapshots live here (seed-demo-data.ts writes them);
+# in real mode the worker bypasses KV and calls the platform directly.
+[[kv_namespaces]]
+binding = "KV"
+id = "e9c37be505844e1dbdb0b83b8311ed17"
 
 # Secrets:
 #   META_APP_ID
