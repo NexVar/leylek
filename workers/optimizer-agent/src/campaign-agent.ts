@@ -42,7 +42,9 @@ interface CampaignState {
 
 const HISTORY_LIMIT = 20;
 const METRIC_WINDOW_HOURS = 48;
-const GEMINI_MODEL = 'gemini-2.5-pro';
+// Free tier has zero quota on gemini-2.5-pro right now; Flash carries the
+// structured decision well enough and is the PRD §16 fallback path.
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // ---------------------------------------------------------------------------
 // Aggregated ad metrics passed into the prompt
