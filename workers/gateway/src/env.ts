@@ -6,6 +6,11 @@
 export interface Env {
   // Vars
   APP_URL: string;
+  JWT_ISSUER: string;
+  /** Selects which AdPlatformClient downstream Workers build; gateway just forwards. */
+  LEYLEK_AD_PLATFORM: 'sim' | 'real';
+  /** When 'true', `/api/auth/dev-login` is enabled (E2E demo shortcut). */
+  LEYLEK_ALLOW_DEV_LOGIN: string;
 
   // D1
   DB: D1Database;

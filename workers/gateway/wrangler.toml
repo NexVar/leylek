@@ -8,6 +8,9 @@ enabled = true
 
 [vars]
 APP_URL = "http://localhost:5173"
+JWT_ISSUER = "leylek-gateway"
+LEYLEK_AD_PLATFORM = "sim"
+LEYLEK_ALLOW_DEV_LOGIN = "true"
 
 [[d1_databases]]
 binding = "DB"
@@ -19,22 +22,22 @@ migrations_dir = "../../packages/db/migrations"
 binding = "KV"
 id = "e9c37be505844e1dbdb0b83b8311ed17"
 
-# Service bindings — uncomment as each worker deploys
-# [[services]]
-# binding = "CONTENT_AGENT"
-# service = "leylek-content-agent"
-#
-# [[services]]
-# binding = "OPTIMIZER_AGENT"
-# service = "leylek-optimizer-agent"
-#
-# [[services]]
-# binding = "PUBLISHER_AGENT"
-# service = "leylek-publisher-agent"
-#
-# [[services]]
-# binding = "ANALYTICS_WORKER"
-# service = "leylek-analytics-worker"
+# Service bindings — each agent Worker is reachable type-safely from here.
+[[services]]
+binding = "CONTENT_AGENT"
+service = "leylek-content-agent"
+
+[[services]]
+binding = "OPTIMIZER_AGENT"
+service = "leylek-optimizer-agent"
+
+[[services]]
+binding = "PUBLISHER_AGENT"
+service = "leylek-publisher-agent"
+
+[[services]]
+binding = "ANALYTICS_WORKER"
+service = "leylek-analytics-worker"
 
 # Secrets (set via `wrangler secret put <NAME> --name leylek-gateway`):
 #   GOOGLE_OAUTH_CLIENT_ID
