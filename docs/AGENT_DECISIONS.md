@@ -68,6 +68,22 @@ Ad 2 also satisfies the "clear winner" branch (CPA 15 = 0.375× median, well
 under 0.7×), but the prompt's priority order means PAUSE wins over
 REALLOCATE on this snapshot. The jury sees a single decisive action.
 
+**Applying the seed:** run `pnpm db:seed` from the repo root. The script
+(`scripts/seed-demo-data.ts`) talks directly to the Cloudflare D1 + KV REST
+API (no `wrangler` dependency), reads credentials from `.env`, and writes:
+the demo user + `google_ads` connected account (upserted), the Demlik Pro
+campaign with the three ads, three `CREATED_AD` `agent_logs` rows, **48 h of
+`metric_snapshots` (8×6 h buckets per ad)** whose per-ad totals match the
+table above exactly, and `sim:campaign:* / sim:ad:* / sim:metrics:*` KV
+entries so the publisher-agent's `SimulatedAdsClient` recognises the
+external IDs. The script is idempotent — campaign + child rows are wiped
+and rewritten on each run; the bucket-level distribution is driven by a
+seeded Mulberry32 PRNG so reruns produce byte-stable snapshot rows. A
+safety check refuses to run if `CLOUDFLARE_D1_DATABASE_ID` or
+`CLOUDFLARE_KV_NAMESPACE_ID` don't match the pinned `leylek-prod` IDs in
+`workers/*/wrangler.toml`; override with `LEYLEK_SEED_FORCE=1` for a fresh
+environment.
+
 ## 6. Auth strategy for the E2E demo
 
 - **Real prod path:** Google OAuth login via the gateway (`/api/auth/google/start`
