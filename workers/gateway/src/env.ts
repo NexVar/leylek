@@ -5,7 +5,10 @@
 
 export interface Env {
   // Vars
+  /** Frontend (Pages) origin — redirect target after OAuth + CORS allow-list. */
   APP_URL: string;
+  /** Gateway origin — used for OAuth callback `redirect_uri`. */
+  GATEWAY_URL: string;
   JWT_ISSUER: string;
   /** Selects which AdPlatformClient downstream Workers build; gateway just forwards. */
   LEYLEK_AD_PLATFORM: 'sim' | 'real';

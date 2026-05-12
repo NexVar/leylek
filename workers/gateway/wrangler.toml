@@ -7,7 +7,10 @@ compatibility_flags = ["nodejs_compat"]
 enabled = true
 
 [vars]
-APP_URL = "http://localhost:5173"
+# Frontend origin — where to redirect after OAuth, and where Pages serves the SPA.
+APP_URL = "https://leylek-web.pages.dev"
+# Gateway origin — the worker's own URL; OAuth callback registers against this.
+GATEWAY_URL = "https://leylek-gateway.batuhanbayazitt.workers.dev"
 JWT_ISSUER = "leylek-gateway"
 LEYLEK_AD_PLATFORM = "sim"
 LEYLEK_ALLOW_DEV_LOGIN = "true"
