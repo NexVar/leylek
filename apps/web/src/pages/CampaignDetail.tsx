@@ -1,0 +1,396 @@
+import { useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { ApiError } from '../api/client';
+import { useCampaign, useCampaignLogs, useInvalidateCampaign, useOptimizeNow } from '../api/hooks';
+import type { Ad, OptimizeNowResponse } from '../api/types';
+import { AgentLogRow } from '../components/AgentLogRow';
+import { Button } from '../components/Button';
+import { Card, CardHeader } from '../components/Card';
+import { MetricNumber } from '../components/MetricNumber';
+import { OptimizerToast } from '../components/OptimizerToast';
+import { Pill } from '../components/Pill';
+import { SpendChart } from '../components/SpendChart';
+import { SpinnerInline } from '../components/SpinnerInline';
+import { cn } from '../lib/cn';
+import {
+  basisPointsToPercent,
+  hostnameOf,
+  kurusToTry,
+  modeLabel,
+  strategyLabel,
+} from '../lib/format';
+
+/**
+ * The demo screen. Layout (per spec):
+ *   Header (campaign meta + coral CTA)
+ *   ┌────────────────────────────┐ ┌──────────────┐
+ *   │ 3 ad cards in a row        │ │ Agent        │
+ *   │ Spend chart below          │ │ timeline     │
+ *   └────────────────────────────┘ └──────────────┘
+ *
+ * Clicking "Şimdi Optimize Et" → POST /optimize-now → coral toast streams
+ * the reasoning client-side (30ms/word). After stream completes + 5s
+ * settle, we refetch the campaign + logs so the timeline + paused ad
+ * status update without a second click.
+ */
+export function CampaignDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = Number(params.id);
+
+  const campaignQuery = useCampaign(id);
+  const logsQuery = useCampaignLogs(id);
+  const optimizeMutation = useOptimizeNow(id);
+  const invalidate = useInvalidateCampaign();
+
+  const [toast, setToast] = useState<OptimizeNowResponse | null>(null);
+
+  if (!Number.isFinite(id) || id <= 0) {
+    return (
+      <Card>
+        <p className="text-body-md text-ink-muted">Geçersiz kampanya kimliği.</p>
+      </Card>
+    );
+  }
+
+  if (campaignQuery.isLoading) {
+    return (
+      <Card>
+        <div className="flex items-center gap-3 text-ink-muted text-body-sm">
+          <SpinnerInline className="text-accent" />
+          Kampanya yükleniyor…
+        </div>
+      </Card>
+    );
+  }
+
+  if (campaignQuery.error) {
+    const status = campaignQuery.error instanceof ApiError ? campaignQuery.error.status : null;
+    return (
+      <Card padding="lg" className="flex flex-col items-start gap-3 border-danger/50">
+        <Pill tone="danger" dot>
+          {status ? `Hata ${status}` : 'Bağlantı hatası'}
+        </Pill>
+        <p className="text-body-md text-ink-muted">Kampanya bilgilerine ulaşılamadı.</p>
+        <Link to="/dashboard">
+          <Button variant="secondary">Kampanyalara dön</Button>
+        </Link>
+      </Card>
+    );
+  }
+
+  if (!campaignQuery.data) return null;
+
+  const { campaign, ads } = campaignQuery.data;
+  const logs = logsQuery.data?.logs ?? campaignQuery.data.logs;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <BackLink />
+
+      <CampaignHeader
+        productUrl={campaign.productUrl}
+        mode={campaign.mode}
+        status={campaign.status}
+        dailyBudgetKurus={campaign.dailyBudgetKurus}
+        adCount={ads.length}
+        optimizing={optimizeMutation.isPending}
+        onOptimize={async () => {
+          try {
+            const res = await optimizeMutation.mutateAsync();
+            setToast(res);
+          } catch (err) {
+            const msg = err instanceof ApiError ? err.message : 'Optimizasyon başarısız oldu.';
+            // Render a one-off danger pill toast via setToast with a fake decision shape.
+            setToast({
+              decision: {
+                action: 'KEEP',
+                targetAdId: null,
+                reason: msg,
+                confidence: 0,
+              },
+              reasoningStreamLine: msg,
+              agentLogId: 0,
+            });
+          }
+        }}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+        <div className="flex flex-col gap-6 min-w-0">
+          <section className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-h2 text-ink">Reklam Varyantları</h2>
+              <span className="text-body-sm text-ink-subtle">
+                İçerik ajanının ürettiği üç strateji
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {ads.map((ad) => (
+                <AdCard key={ad.id} ad={ad} />
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <Card padding="lg" className="rounded-xl">
+              <CardHeader
+                title="Harcama Dağılımı"
+                subtitle="Reklam başına son 48 saatlik harcama"
+                trailing={
+                  <span className="text-body-sm text-ink-subtle tabular-nums">
+                    Toplam{' '}
+                    <span className="text-ink font-medium">
+                      {kurusToTry(ads.reduce((s, a) => s + a.spendKurus, 0))}
+                    </span>
+                  </span>
+                }
+              />
+              <div className="mt-5">
+                <SpendChart ads={ads} />
+              </div>
+            </Card>
+          </section>
+        </div>
+
+        <aside className="min-w-0">
+          <Card padding="lg" className="sticky top-6">
+            <CardHeader
+              title="Ajan Kararları"
+              subtitle="En yeni karar en üstte"
+              trailing={<Pill tone="neutral">{logs.length}</Pill>}
+            />
+            <div className="mt-5">
+              {logs.length === 0 ? (
+                <p className="text-body-sm text-ink-subtle">
+                  Henüz karar yok. "Şimdi Optimize Et" ile tetikleyebilirsin.
+                </p>
+              ) : (
+                <ul className="flex flex-col">
+                  {logs.map((log, i) => (
+                    <AgentLogRow
+                      key={log.id}
+                      log={log}
+                      isFirst={i === 0}
+                      isLast={i === logs.length - 1}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          </Card>
+        </aside>
+      </div>
+
+      {toast ? (
+        <OptimizerToast
+          response={toast}
+          onDismiss={() => {
+            setToast(null);
+            void invalidate(id);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function BackLink() {
+  return (
+    <Link
+      to="/dashboard"
+      className="inline-flex items-center gap-1.5 text-body-sm text-ink-muted hover:text-ink rounded-sm self-start"
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        fill="none"
+        role="img"
+        aria-labelledby="back-link-title"
+      >
+        <title id="back-link-title">Geri</title>
+        <path d="M9 3L5 7l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      Kampanyalara dön
+    </Link>
+  );
+}
+
+interface CampaignHeaderProps {
+  productUrl: string;
+  mode: 'OTOPILOT' | 'COPILOT';
+  status: 'active' | 'paused' | 'archived';
+  dailyBudgetKurus: number;
+  adCount: number;
+  optimizing: boolean;
+  onOptimize: () => void;
+}
+
+function CampaignHeader({
+  productUrl,
+  mode,
+  status,
+  dailyBudgetKurus,
+  adCount,
+  optimizing,
+  onOptimize,
+}: CampaignHeaderProps) {
+  const statusTone = status === 'active' ? 'success' : status === 'paused' ? 'warning' : 'neutral';
+  const statusLabel =
+    status === 'active' ? 'Aktif' : status === 'paused' ? 'Duraklatıldı' : 'Arşivli';
+  const modeTone = mode === 'OTOPILOT' ? 'navy' : 'accent';
+
+  return (
+    <Card padding="lg" className="flex flex-col gap-5">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div className="flex flex-col gap-2 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Pill tone={statusTone} dot>
+              {statusLabel}
+            </Pill>
+            <Pill tone={modeTone}>{modeLabel(mode)}</Pill>
+            <span className="font-mono text-[11px] text-ink-subtle">{hostnameOf(productUrl)}</span>
+          </div>
+          <h1 className="text-h1 text-ink">Demlik Pro — Akıllı Çay Demleme Cihazı</h1>
+          <a
+            href={productUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-body-sm text-info hover:underline truncate inline-flex items-center gap-1"
+            title={productUrl}
+          >
+            {productUrl}
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              role="img"
+              aria-labelledby="external-link-title"
+            >
+              <title id="external-link-title">Yeni sekmede aç</title>
+              <path
+                d="M5 2h5v5M10 2 4.5 7.5M6 6v3.5H2.5V3H6"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </a>
+        </div>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={onOptimize}
+          loading={optimizing}
+          className="md:self-start whitespace-nowrap"
+        >
+          {optimizing ? 'Karar veriliyor…' : 'Şimdi Optimize Et'}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
+        <MetricNumber
+          label="Günlük bütçe"
+          value={kurusToTry(dailyBudgetKurus)}
+          hint="Otomatik dağılım"
+        />
+        <MetricNumber label="Aktif reklam" value={adCount} hint="3 strateji" />
+        <MetricNumber
+          label="Mod"
+          value={modeLabel(mode)}
+          hint={mode === 'OTOPILOT' ? 'Tam otonom' : 'Onaylı'}
+          emphasis="muted"
+        />
+        <MetricNumber
+          label="Ajan durumu"
+          value={
+            <span className="inline-flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse-coral" />
+              Görevde
+            </span>
+          }
+          hint="Cron · 6 saat"
+          emphasis="muted"
+        />
+      </div>
+    </Card>
+  );
+}
+
+interface AdCardProps {
+  ad: Ad;
+}
+
+function AdCard({ ad }: AdCardProps) {
+  const isPaused = ad.status === 'paused';
+
+  const strategyMeta = useMemo(() => {
+    switch (ad.strategyType) {
+      case 'AGGRESSIVE':
+        return { tone: 'danger' as const, accent: 'border-danger/50' };
+      case 'STORY':
+        return { tone: 'success' as const, accent: 'border-success/40' };
+      case 'TECHNICAL':
+        return { tone: 'info' as const, accent: 'border-info/40' };
+    }
+  }, [ad.strategyType]);
+
+  const cpaLabel = ad.cpaKurus !== null ? kurusToTry(ad.cpaKurus) : '—';
+  const statusTone = isPaused ? 'danger' : ad.status === 'pending' ? 'warning' : 'success';
+  const statusLabel =
+    ad.status === 'paused' ? 'Durduruldu' : ad.status === 'pending' ? 'Hazırlanıyor' : 'Yayında';
+
+  return (
+    <Card
+      padding="md"
+      className={cn(
+        'flex flex-col h-full transition-colors duration-200',
+        isPaused && 'bg-danger/[0.04] border-danger/30',
+        !isPaused && `border-l-2 ${strategyMeta.accent}`,
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <Pill tone={isPaused ? 'danger' : strategyMeta.tone} dot>
+          {strategyLabel(ad.strategyType)}
+        </Pill>
+        <Pill tone={statusTone}>{statusLabel}</Pill>
+      </div>
+
+      <p
+        className={cn(
+          'text-body-md text-ink mt-3 leading-[1.5] min-h-[5.5rem]',
+          isPaused && 'text-ink-muted line-through decoration-danger/40',
+        )}
+      >
+        {ad.adText}
+      </p>
+
+      <div className="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-2">
+        <MetricNumber
+          label="Harcama"
+          value={kurusToTry(ad.spendKurus)}
+          emphasis={isPaused ? 'danger' : 'default'}
+        />
+        <MetricNumber
+          label="CPA"
+          value={cpaLabel}
+          emphasis={ad.cpaKurus !== null && ad.cpaKurus > 8000 ? 'danger' : 'default'}
+        />
+        <MetricNumber
+          label="CTR"
+          value={basisPointsToPercent(ad.ctrBasisPoints)}
+          emphasis="muted"
+        />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2 text-body-sm text-ink-subtle">
+        <span className="font-mono text-[11px]">
+          {ad.googleAdId ?? ad.metaAdId ?? `sim_ad_${ad.id}`}
+        </span>
+        {isPaused ? <span className="text-danger font-medium">stop-loss tetiklendi</span> : null}
+      </div>
+    </Card>
+  );
+}
