@@ -19,7 +19,9 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { CONTENT_AGENT_SYSTEM, CONTENT_AGENT_USER } from '@leylek/prompts';
 import { ContentAgentOutput } from '@leylek/shared-types';
 
-const MODEL_ID = 'gemini-2.5-pro';
+// PRD §16 free-tier fallback — Pro quota is 0 on this project; Flash is the
+// supported model on the same Gemini API key and handles structured output identically.
+const MODEL_ID = 'gemini-2.5-flash';
 const TEMPERATURE = 0.7;
 
 /**
