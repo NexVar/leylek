@@ -50,12 +50,11 @@ const GoogleTokenSchema = z.object({
 // Helpers
 // ---------------------------------------------------------------------------
 function redirectUri(env: Env): string {
-  // The OAuth redirect points back at *this* worker. APP_URL is the frontend
-  // origin in dev — for prod we'd flip to the gateway's workers.dev URL via a
-  // separate `GATEWAY_URL` var. Keeping APP_URL as the dev convention here so
-  // a local `wrangler dev` + Vite dev pair both resolve back through the
-  // same redirect entry.
-  return `${env.APP_URL}/api/auth/google/callback`;
+  // The OAuth callback lands on the gateway, not the SPA. In dev both
+  // collapse to localhost via APP_URL; in prod the two diverge — Pages
+  // serves the frontend and Workers hosts the gateway — so we use the
+  // dedicated GATEWAY_URL var here.
+  return `${env.GATEWAY_URL}/api/auth/google/callback`;
 }
 
 type AuthCtx = Context<{ Bindings: Env; Variables: AuthVariables }>;
@@ -67,10 +66,13 @@ async function issueSessionCookie(c: AuthCtx, userId: number): Promise<void> {
     c.env.JWT_ISSUER,
     SESSION_TTL_SECONDS,
   );
+  // SameSite=None is required because the frontend (Pages) and gateway
+  // (Workers) live on different second-level domains; the browser would
+  // otherwise drop the cookie on cross-site fetches with credentials.
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
-    sameSite: 'Lax',
+    sameSite: 'None',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
   });

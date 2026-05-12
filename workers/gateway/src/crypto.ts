@@ -170,11 +170,12 @@ export async function verifyJwt(
 // AES-256-GCM
 // ---------------------------------------------------------------------------
 async function importAesKey(base64Key: string): Promise<CryptoKey> {
+  // AES_KEY_BASE may be any length (we generate it via `openssl rand -base64 64`).
+  // Derive a deterministic 32-byte AES-256 key via SHA-256 so the key size is
+  // always correct regardless of the input. Same input → same key, every call.
   const raw = base64ToBytes(base64Key);
-  if (raw.byteLength !== 32) {
-    throw new Error(`AES_KEY_BASE must decode to 32 bytes, got ${raw.byteLength}`);
-  }
-  return crypto.subtle.importKey('raw', asBufferSource(raw), { name: 'AES-GCM' }, false, [
+  const derived = await crypto.subtle.digest('SHA-256', asBufferSource(raw));
+  return crypto.subtle.importKey('raw', derived, { name: 'AES-GCM' }, false, [
     'encrypt',
     'decrypt',
   ]);
