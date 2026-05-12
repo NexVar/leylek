@@ -25,13 +25,41 @@ app.use(
   }),
 );
 
-app.get('/api/health', (c) =>
-  c.json({
+// ---------------------------------------------------------------------------
+// Aggregated health — pings every Service Binding individually and reports
+// each upstream's state. A single down upstream must not flip the gateway's
+// own status to red, otherwise we lose observability when partial outages
+// happen.
+// ---------------------------------------------------------------------------
+type UpstreamHealth = { status: 'ok' | 'down'; detail?: unknown };
+
+async function probeUpstream(binding: Fetcher): Promise<UpstreamHealth> {
+  try {
+    const res = await binding.fetch('https://internal/api/health');
+    if (!res.ok) {
+      return { status: 'down', detail: `http_${res.status}` };
+    }
+    const json = (await res.json()) as Record<string, unknown>;
+    return { status: 'ok', detail: json };
+  } catch (err) {
+    return { status: 'down', detail: err instanceof Error ? err.message : 'unknown' };
+  }
+}
+
+app.get('/api/health', async (c) => {
+  const [content, optimizer, publisher, analytics] = await Promise.all([
+    probeUpstream(c.env.CONTENT_AGENT),
+    probeUpstream(c.env.OPTIMIZER_AGENT),
+    probeUpstream(c.env.PUBLISHER_AGENT),
+    probeUpstream(c.env.ANALYTICS_WORKER),
+  ]);
+  return c.json({
     status: 'ok',
     service: 'gateway',
     timestamp: new Date().toISOString(),
-  }),
-);
+    upstream: { content, optimizer, publisher, analytics },
+  });
+});
 
 app.route('/api/auth', authRoutes);
 app.route('/api/auth', adAccountRoutes);
