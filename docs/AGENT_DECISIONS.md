@@ -86,14 +86,24 @@ environment.
 
 ## 6. Auth strategy for the E2E demo
 
-- **Real prod path:** Google OAuth login via the gateway (`/api/auth/google/start`
-  + `/api/auth/google/callback`). Real client ID is in `.env`; redirect URI is
-  the gateway's prod URL.
+- **Real prod path:** Google OAuth login via the gateway
+  (`/api/auth/google/start` + `/api/auth/google/callback`). Real client ID
+  is in `.env`; the redirect URI registered in code is the gateway's prod
+  URL (`https://leylek-gateway.batuhanbayazitt.workers.dev/api/auth/google/callback`).
+  **One-time Cloud Console step required**: the user must add this exact
+  redirect URI to the OAuth client's Authorized redirect URIs AND list the
+  Google account that will sign in as a Test user on the consent screen
+  (the app is in Testing mode by default). Without these two clicks Google
+  returns `Error 400: redirect_uri_mismatch`. Step-by-step instructions
+  live in `docs/DEMO_PLAYBOOK.md §9`. The gateway code is correct; this is
+  pure config that lives in the user's own Google account.
 - **E2E shortcut:** `/api/auth/dev-login` endpoint, only enabled when
   `LEYLEK_ALLOW_DEV_LOGIN=true`. POST `{email}` returns a signed JWT cookie
-  for an existing seeded user. Required because agent-browser can't complete
-  the Google consent dance in CI. Disabled in any deployment that doesn't
-  set the flag — defaults to off.
+  for an existing seeded user. The jury demo + `scripts/e2e-demo.sh` both
+  use this path because (a) agent-browser can't complete the Google
+  consent dance in CI, and (b) it sidesteps the manual Cloud Console
+  step above. Disabled in any deployment that doesn't set the flag —
+  defaults to off.
 
 ## 7. Hosting topology
 

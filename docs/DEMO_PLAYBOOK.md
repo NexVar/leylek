@@ -111,3 +111,60 @@ The risk table flags a "wifi/Meta API outage" scenario for live demo. Mitigation
 - [ ] All `agent_logs` rows visible to the next demo session?
 - [ ] Repo public (per PRD §9 public-flip checklist)?
 - [ ] Gemini quota usage logged (`https://ai.dev/rate-limit`)?
+
+## 9. Enabling the real Google OAuth button (one-time setup)
+
+The **Demo girişi** path works out of the box. The **Google ile Giriş Yap**
+button, however, requires a one-time Google Cloud Console configuration —
+the deploy created a worker on a new domain that isn't registered as an
+authorised redirect URI on the existing OAuth client.
+
+If you don't need real Google login on stage, **skip this section** — the
+jury demo uses the dev-login path.
+
+### Step 1 — Authorise the production redirect URI
+
+1. Open <https://console.cloud.google.com/apis/credentials>.
+2. Pick the **OAuth 2.0 Client ID** whose value matches your
+   `.env`'s `GOOGLE_OAUTH_CLIENT_ID` (starts with `271929788367-…`).
+3. Under **Authorized redirect URIs**, add **exactly**:
+   ```
+   https://leylek-gateway.batuhanbayazitt.workers.dev/api/auth/google/callback
+   ```
+4. Under **Authorized JavaScript origins**, add:
+   ```
+   https://leylek-web.pages.dev
+   ```
+5. Click **Save**. Changes propagate within a minute or two.
+
+### Step 2 — Add yourself as a test user
+
+If the OAuth consent screen is still in **Testing** state (default for new
+apps), Google blocks anyone except listed test users with
+`Access blocked: This app is being tested` or `Error 403`.
+
+1. <https://console.cloud.google.com/apis/credentials/consent>.
+2. Scroll to **Test users** → **+ Add users**.
+3. Add the Google account you'll click "Giriş Yap" with on stage
+   (e.g. `sweetsavagetr@gmail.com`, `batuhanbayazitt@gmail.com`).
+4. Save.
+
+### Step 3 — Verify
+
+```bash
+curl -s https://leylek-gateway.batuhanbayazitt.workers.dev/api/auth/google/start
+# → 302 Location: https://accounts.google.com/o/oauth2/v2/auth?...
+```
+
+Then click **Google ile Giriş Yap** from the Pages frontend — the consent
+screen now loads. After you grant scopes, the gateway upserts your row in
+`users` and lands you on `/dashboard`.
+
+### Why this is a manual step
+
+The OAuth client lives in your Google account and **only you** can edit
+its authorised origins — it can't be done from CI or `wrangler`. The
+demo's primary path (`POST /api/auth/dev-login`) was designed to bypass
+this exact friction for the 60-second jury walkthrough; the Google
+button is the production-ready alternative once the Cloud Console
+config is in place.

@@ -159,6 +159,11 @@ export function LoginPage() {
             <GoogleGlyph />
             Google ile Giriş Yap
           </a>
+          <p className="text-body-sm text-ink-subtle text-center -mt-1">
+            Google girişi için Cloud Console redirect-URI kurulumu gerekir (bkz.{' '}
+            <span className="font-mono">docs/DEMO_PLAYBOOK.md §9</span>). Demo akışı için yukarıdaki{' '}
+            <b>Demo girişi</b> butonunu kullanın.
+          </p>
 
           <p className="text-body-sm text-ink-subtle">
             Devam ederek{' '}
