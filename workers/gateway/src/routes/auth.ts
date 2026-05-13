@@ -16,12 +16,12 @@ import { schema } from '@leylek/db';
 import { and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { type Context, Hono } from 'hono';
-import { deleteCookie, setCookie } from 'hono/cookie';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { z } from 'zod';
 
-import { signJwt } from '../crypto';
+import { signJwt, verifyJwt } from '../crypto';
 import type { Env } from '../env';
-import { type AuthVariables, requireAuth, SESSION_COOKIE } from '../middleware/auth';
+import { type AuthVariables, SESSION_COOKIE } from '../middleware/auth';
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -233,13 +233,28 @@ authRoutes.post('/dev-login', async (c) => {
 
 // ---------------------------------------------------------------------------
 // Session — current user
+//
+// Returns 200 with `{user: null}` when no valid session is present, instead
+// of the typical 401 + redirect dance. Reason: the frontend's
+// `ProtectedRoute` already handles the falsy-user redirect locally, and a
+// 401 here just splatters a red error in every visitor's devtools network
+// tab even though the UX is correct. 200-with-null keeps the contract
+// honest and the dashboard's first paint clean.
 // ---------------------------------------------------------------------------
-authRoutes.get('/me', requireAuth, async (c) => {
-  const userId = Number(c.get('userId'));
+authRoutes.get('/me', async (c) => {
+  const token = getCookie(c, SESSION_COOKIE);
+  if (!token) {
+    return c.json({ user: null });
+  }
+  const payload = await verifyJwt(token, c.env.JWT_SECRET, c.env.JWT_ISSUER);
+  if (!payload) {
+    return c.json({ user: null });
+  }
+  const userId = Number(payload.sub);
   const db = drizzle(c.env.DB, { schema });
   const user = await db.query.users.findFirst({ where: eq(schema.users.id, userId) });
   if (!user) {
-    return c.json({ error: 'unauthorized' }, 401);
+    return c.json({ user: null });
   }
   return c.json({
     user: {
