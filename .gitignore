@@ -65,6 +65,7 @@ coverage/
 playwright-report/
 test-results/
 .playwright/
+e2e-out/
 
 # --- TypeScript ---
 *.tsbuildinfo
