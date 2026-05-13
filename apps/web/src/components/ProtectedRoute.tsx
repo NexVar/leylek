@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ApiError } from '../api/client';
 import { useMe } from '../api/hooks';
 import { useAuthStore } from '../store/auth';
 import { Logo } from './Logo';
@@ -12,8 +11,9 @@ interface ProtectedRouteProps {
 }
 
 /**
- * Calls GET /api/auth/me and redirects to /login on 401.
- * On 200, populates the auth store so synchronous consumers see the user.
+ * Calls GET /api/auth/me. The gateway now returns 200 + `{user: null}` when
+ * no valid session exists (no devtools-red 401 on first paint), so the auth
+ * check collapses to a single `meQuery.data?.user` test.
  */
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
@@ -24,14 +24,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     if (meQuery.data?.user) {
       setUser(meQuery.data.user);
-    }
-  }, [meQuery.data, setUser]);
-
-  useEffect(() => {
-    if (meQuery.error instanceof ApiError && meQuery.error.status === 401) {
+    } else if (meQuery.data && meQuery.data.user === null) {
       clearUser();
     }
-  }, [meQuery.error, clearUser]);
+  }, [meQuery.data, setUser, clearUser]);
 
   if (meQuery.isLoading) {
     return (
@@ -45,9 +41,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  const isAuthError = meQuery.error instanceof ApiError && meQuery.error.status === 401;
-
-  if (isAuthError || !meQuery.data?.user) {
+  if (!meQuery.data?.user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 

@@ -93,5 +93,6 @@ export interface OptimizeNowResponse {
 }
 
 export interface AuthMeResponse {
-  user: User;
+  /** `null` when no valid session cookie was sent — frontend redirects to /login. */
+  user: User | null;
 }
