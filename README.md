@@ -11,7 +11,19 @@ Cloudflare Workers + Google Gemini 2.5 üzerinde çalışan **multi-agent** yapa
 
 ## Demo
 
-Demo URL ve seed user bilgisi demo öncesi buraya eklenecek.
+| Surface | URL |
+|---|---|
+| Frontend | https://leylek-web.pages.dev |
+| Gateway / API | https://leylek-gateway.batuhanbayazitt.workers.dev |
+| `/api/health` (5-Worker probe) | [link](https://leylek-gateway.batuhanbayazitt.workers.dev/api/health) |
+
+**Demo girişi:** `batuhanbayazitt@gmail.com` (seeded). Gerçek Google OAuth da
+çalışıyor; demo akışı dev-login üzerinden ilerlediği için jüri 1 saniyede
+giriş yapar.
+
+**60 saniyelik akış:** [docs/DEMO_PLAYBOOK.md](./docs/DEMO_PLAYBOOK.md).
+Demo öncesi reset: `pnpm db:seed` (idempotent). Full E2E doğrulama
+(seed + browser flow + assertions): `./scripts/e2e-demo.sh`.
 
 ## Mimari özeti
 
@@ -40,12 +52,12 @@ React (Pages) → gateway Worker → [ content-agent | optimizer-agent | publish
                                           D1 + KV
 ```
 
-- `gateway` — API entry, OAuth, rate-limit, frontend façade
-- `content-agent` — **Gemini 2.5 Pro** — ürün URL'sini analiz, persona çıkarımı, 3 reklam varyantı (Agresif / Hikaye / Teknik)
-- `optimizer-agent` — **Gemini 2.5 Pro** (cron) — spend/CPA/CTR oku, pause/keep/realloc kararı + gerekçe
-- `publisher-agent` — Meta + Google Ads gerçek API aksiyonları (yayına alma, pause, budget shift)
-- `analytics-worker` — Meta/Google'dan metric çek (cron), D1'e yaz
-- `Campaign DO` — per-campaign decision history, queued actions, atomic state
+- `gateway` — API entry, Google OAuth + dev-login + JWT, AES helpers, frontend façade
+- `content-agent` — **Gemini 2.5 Flash** (PRD §16 fallback path) — ürün URL'sini analiz, persona çıkarımı, 3 reklam varyantı (Agresif / Hikaye / Teknik), `responseSchema` ile structured output
+- `optimizer-agent` — **Gemini 2.5 Flash** (cron her 6 saat) — spend/CPA/CTR oku, pause/keep/realloc kararı + Türkçe gerekçe
+- `publisher-agent` — Google Ads gerçek API kodu repo'da (`real-google-ads.ts`); demo `sim` runtime'da `SimulatedAdsClient`; Meta `MetaAdsClient` Faz 2 stub
+- `analytics-worker` — D1 metric_snapshots → cached aggregates (`ads.spend_kurus` vb.); real mode'da Google Ads insights'tan yeni snapshot çeker
+- `Campaign DO` — per-campaign decision history, atomic Gemini → publisher action zinciri
 
 ## Repo yapısı
 
@@ -88,6 +100,23 @@ pnpm dev                    # Vite + wrangler dev paralel ayağa kaldırır
 ```
 
 Tüm credential listesi ve nereden alınacağı için [`.env.example`](./.env.example) içindeki yorumları oku.
+
+## Deploy + demo seed
+
+```bash
+# 1. Tüm 5 Worker + Pages tek komutta
+./scripts/deploy.sh
+
+# 2. Demlik Pro demo verisini D1 + KV'ye yaz
+pnpm db:seed
+
+# 3. End-to-end smoke (seeds, drives the browser, asserts state)
+./scripts/e2e-demo.sh
+```
+
+Deploy bağımlılık sırasına dikkat eder: leaf Worker'lar → optimizer-agent
+(publisher binding'i ister) → gateway (4 Worker'a binding). Pages
+projesi `leylek-web` ilk deploy'da otomatik oluşur.
 
 ## Jüri için harita
 
