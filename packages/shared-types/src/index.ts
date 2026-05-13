@@ -50,6 +50,11 @@ export const AgentAction = z.enum([
   'REALLOCATED_BUDGET',
   'PROPOSED_PAUSE',
   'PROPOSED_BUDGET_SHIFT',
+  'PROPOSED_RESUME',
+  'COPILOT_APPROVED',
+  'COPILOT_REJECTED',
+  'MODE_CHANGED',
+  'OPTIMIZER_FAILED',
 ]);
 export type AgentAction = z.infer<typeof AgentAction>;
 
