@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { OptimizeNowResponse } from '../api/types';
+import type { CampaignMode, OptimizeNowResponse } from '../api/types';
 import { cn } from '../lib/cn';
 import { Button } from './Button';
 import { Pill } from './Pill';
@@ -9,6 +9,16 @@ interface OptimizerToastProps {
   onDismiss: () => void;
   /** Auto-dismiss after stream completes + this many ms (DESIGN.md says ~5s). */
   autoDismissAfterMs?: number;
+  /**
+   * Campaign mode at the time of optimize. Co-Pilot flips the toast into
+   * "Öneri Hazır" with an inline Onayla shortcut; Otopilot keeps the
+   * familiar "Reklam Durduruldu / Bütçe Kaydırıldı" labels.
+   */
+  mode?: CampaignMode;
+  /** Triggered by the inline "Onayla" button in Co-Pilot mode. */
+  onApprove?: () => void;
+  /** Drives the loading state on the inline Onayla button. */
+  approving?: boolean;
 }
 
 /**
@@ -28,9 +38,18 @@ export function OptimizerToast({
   response,
   onDismiss,
   autoDismissAfterMs = 5000,
+  mode,
+  onApprove,
+  approving = false,
 }: OptimizerToastProps) {
   const { decision, reasoningStreamLine } = response;
   const fullReason = reasoningStreamLine || decision.reason;
+  const isCoPilot = (mode ?? response.campaignMode) === 'COPILOT';
+  const canApprove =
+    isCoPilot &&
+    typeof onApprove === 'function' &&
+    decision.action !== 'KEEP' &&
+    typeof response.notificationId === 'number';
 
   // Tokenize on whitespace; re-emit with spaces.
   const tokens = useMemo(() => {
@@ -62,15 +81,17 @@ export function OptimizerToast({
   const isStreaming = revealedCount < tokens.length;
 
   // Schedule auto-dismiss after the stream completes.
+  // Co-Pilot keeps the toast on screen until the user acts — silently
+  // closing a "please approve" prompt would be a UX trap.
   useEffect(() => {
-    if (isStreaming) return;
+    if (isStreaming || canApprove) return;
     dismissTimerRef.current = window.setTimeout(() => {
       onDismiss();
     }, autoDismissAfterMs);
     return () => {
       if (dismissTimerRef.current) window.clearTimeout(dismissTimerRef.current);
     };
-  }, [isStreaming, autoDismissAfterMs, onDismiss]);
+  }, [isStreaming, canApprove, autoDismissAfterMs, onDismiss]);
 
   const confidence = Math.max(0, Math.min(1, decision.confidence ?? 0));
   const confidenceFill =
@@ -86,14 +107,23 @@ export function OptimizerToast({
           ? 'accent'
           : 'neutral';
 
-  const actionLabel =
-    decision.action === 'PAUSE_AD'
+  const actionLabel = isCoPilot
+    ? decision.action === 'PAUSE_AD'
+      ? 'Durdurma Önerisi'
+      : decision.action === 'RESUME_AD'
+        ? 'Yeniden Başlatma Önerisi'
+        : decision.action === 'REALLOCATE_BUDGET'
+          ? 'Bütçe Kaydırma Önerisi'
+          : 'Devam'
+    : decision.action === 'PAUSE_AD'
       ? 'Reklam Durduruldu'
       : decision.action === 'RESUME_AD'
         ? 'Reklam Yeniden Başlatıldı'
         : decision.action === 'REALLOCATE_BUDGET'
           ? 'Bütçe Kaydırıldı'
           : 'Devam';
+
+  const heading = isCoPilot ? 'Öneri Hazır' : 'Optimizasyon Ajanı';
 
   const visible = tokens.slice(0, revealedCount).join('');
   const upcoming = tokens.slice(revealedCount).join('');
@@ -113,7 +143,7 @@ export function OptimizerToast({
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1 min-w-0">
               <span className="text-label text-ink-subtle uppercase tracking-[0.06em]">
-                Optimizasyon Ajanı
+                {heading}
               </span>
               <div className="flex items-center gap-2 flex-wrap">
                 <Pill tone={actionTone} dot>
@@ -164,9 +194,22 @@ export function OptimizerToast({
           {!isStreaming ? (
             <div className="flex items-center justify-between gap-3 pt-1">
               <span className="text-body-sm text-ink-muted tabular-nums">{confidenceLabel}</span>
-              <Button variant="secondary" size="md" onClick={onDismiss}>
-                Anladım
-              </Button>
+              <div className="flex items-center gap-2">
+                {canApprove ? (
+                  <>
+                    <Button variant="ghost" size="md" onClick={onDismiss} disabled={approving}>
+                      Daha sonra
+                    </Button>
+                    <Button variant="primary" size="md" onClick={onApprove} loading={approving}>
+                      {approving ? 'Uygulanıyor…' : 'Onayla'}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="secondary" size="md" onClick={onDismiss}>
+                    Anladım
+                  </Button>
+                )}
+              </div>
             </div>
           ) : null}
         </div>

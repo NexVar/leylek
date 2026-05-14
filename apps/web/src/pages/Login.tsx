@@ -2,29 +2,33 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, GATEWAY_URL } from '../api/client';
-import { useDevLogin, useMe } from '../api/hooks';
+import { useMe, useRequestMagicLink } from '../api/hooks';
+import type { MagicLinkRequestResponse } from '../api/types';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Logo } from '../components/Logo';
 import { Pill } from '../components/Pill';
 import { useAuthStore } from '../store/auth';
 
-const DEFAULT_DEMO_EMAIL = 'batuhanbayazitt@gmail.com';
+type SendResult = MagicLinkRequestResponse & { email: string };
 
 /**
  * Split-pane login. Brand hero on the left (navy with coral tagline)
- * + auth form on the right. Real Google OAuth is a link (because it
- * server-redirects); dev-login is a fetch that lands the user in /dashboard.
+ * + auth form on the right. Google OAuth is the primary path; magic-link
+ * is the §9 yedek (backup) — if Resend rejects the send the gateway
+ * returns `{sent:false, devLink}` (dev-only flag) which we expose as a
+ * coral direct-open link with a warning pill.
  */
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const me = useMe();
   const setUser = useAuthStore((s) => s.setUser);
-  const devLogin = useDevLogin();
+  const requestMagicLink = useRequestMagicLink();
 
-  const [email, setEmail] = useState(DEFAULT_DEMO_EMAIL);
+  const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<SendResult | null>(null);
 
   const redirectTo = (location.state as { from?: string } | null)?.from ?? '/dashboard';
 
@@ -37,24 +41,32 @@ export function LoginPage() {
     }
   }, [me.data, navigate, redirectTo, setUser]);
 
-  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const requestSend = async (target: string) => {
     setError(null);
-    if (!email.trim()) {
+    const trimmed = target.trim();
+    if (!trimmed) {
       setError('E-posta gerekli.');
       return;
     }
     try {
-      const { user } = await devLogin.mutateAsync(email.trim());
-      setUser(user);
-      navigate(redirectTo, { replace: true });
+      const res = await requestMagicLink.mutateAsync(trimmed);
+      setSent({ ...res, email: trimmed });
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.status === 404 ? 'Bu e-posta için demo kullanıcı bulunamadı.' : err.message);
+        setError(
+          err.status === 502
+            ? 'Bağlantı gönderilemedi. E-posta sağlayıcısı şu an cevap vermiyor.'
+            : err.message,
+        );
       } else {
         setError('Bağlantı hatası. Gateway çalışıyor mu?');
       }
     }
+  };
+
+  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    void requestSend(email);
   };
 
   return (
@@ -125,26 +137,40 @@ export function LoginPage() {
             </Pill>
             <h2 className="text-h1 text-ink">Giriş yap</h2>
             <p className="text-body-md text-ink-muted">
-              Otonom reklam ajanına hoş geldin. Demo için aşağıdaki e-postayı kullanabilir veya
-              gerçek Google hesabınla bağlanabilirsin.
+              Otonom reklam ajanına hoş geldin. Google hesabınla bağlan veya e-postanı bırak, sana
+              tek tıkla giriş bağlantısı gönderelim.
             </p>
           </header>
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <Input
-              type="email"
-              label="E-posta"
-              autoComplete="email"
-              placeholder="ornek@firmaniz.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={error ?? undefined}
-              hint="Demo: batuhanbayazitt@gmail.com"
+          {sent ? (
+            <SentPanel
+              result={sent}
+              onResend={() => void requestSend(sent.email)}
+              resending={requestMagicLink.isPending}
             />
-            <Button type="submit" variant="primary" size="lg" block loading={devLogin.isPending}>
-              {devLogin.isPending ? 'Bağlanıyor…' : 'Demo girişi'}
-            </Button>
-          </form>
+          ) : (
+            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+              <Input
+                type="email"
+                label="E-posta"
+                autoComplete="email"
+                placeholder="ornek@firmaniz.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={error ?? undefined}
+                required
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                block
+                loading={requestMagicLink.isPending}
+              >
+                {requestMagicLink.isPending ? 'Gönderiliyor…' : 'E-postaya giriş bağlantısı gönder'}
+              </Button>
+            </form>
+          )}
 
           <div className="flex items-center gap-3 text-body-sm text-ink-subtle">
             <span className="flex-1 h-px bg-border" />
@@ -161,8 +187,8 @@ export function LoginPage() {
           </a>
           <p className="text-body-sm text-ink-subtle text-center -mt-1">
             Google girişi için Cloud Console redirect-URI kurulumu gerekir (bkz.{' '}
-            <span className="font-mono">docs/DEMO_PLAYBOOK.md §9</span>). Demo akışı için yukarıdaki{' '}
-            <b>Demo girişi</b> butonunu kullanın.
+            <span className="font-mono">docs/DEMO_PLAYBOOK.md §9</span>). Hazır değilse e-posta
+            bağlantısı her zaman çalışır.
           </p>
 
           <p className="text-body-sm text-ink-subtle">
@@ -188,6 +214,96 @@ export function LoginPage() {
           </p>
         </div>
       </section>
+    </div>
+  );
+}
+
+interface SentPanelProps {
+  result: SendResult;
+  onResend: () => void;
+  resending: boolean;
+}
+
+function SentPanel({ result, onResend, resending }: SentPanelProps) {
+  const devLink = result.sent === false ? result.devLink : null;
+
+  return (
+    <div className="flex flex-col gap-4 bg-surface-raised border border-border rounded-md p-5 shadow-card-sm">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="w-9 h-9 rounded-md bg-accent-tint text-accent flex items-center justify-center"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            role="img"
+            aria-label="Gönderildi"
+          >
+            <path
+              d="M2 4l7 5 7-5M2 4v10h14V4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <div className="flex flex-col">
+          <span className="text-h3 text-ink">E-posta gönderildi</span>
+          <span className="text-body-sm text-ink-muted">
+            <span className="font-medium text-ink">{result.email}</span> adresine giriş bağlantısı
+            yolladık. Mail kutuna bak.
+          </span>
+        </div>
+      </div>
+
+      {devLink ? (
+        <div className="flex flex-col gap-2 rounded-sm bg-warning/[0.08] border border-warning/30 px-3 py-3">
+          <Pill tone="warning" dot className="self-start">
+            Geliştirici modu — sağlayıcı reddetti
+          </Pill>
+          <p className="text-body-sm text-ink-muted">
+            Resend e-postayı göndermedi. Demo amaçlı doğrudan bağlantıyı kullanabilirsin.
+          </p>
+          <a
+            href={devLink}
+            className="inline-flex items-center gap-1.5 text-accent hover:text-accent-hover text-body-sm font-medium underline-offset-4 hover:underline"
+          >
+            Doğrudan giriş bağlantısını aç
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              role="img"
+              aria-labelledby="dev-link-external"
+            >
+              <title id="dev-link-external">Aynı sekmede aç</title>
+              <path
+                d="M5 2h5v5M10 2 4.5 7.5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </a>
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-between gap-3 text-body-sm">
+        <span className="text-ink-subtle">Maili görmedin mi?</span>
+        <button
+          type="button"
+          onClick={onResend}
+          disabled={resending}
+          className="text-accent hover:text-accent-hover font-medium disabled:opacity-50"
+        >
+          {resending ? 'Gönderiliyor…' : 'Tekrar gönder'}
+        </button>
+      </div>
     </div>
   );
 }

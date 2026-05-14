@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { useCampaigns } from '../api/hooks';
 import type { Campaign } from '../api/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { NewCampaignModal } from '../components/NewCampaignModal';
 import { Pill } from '../components/Pill';
 import { SpinnerInline } from '../components/SpinnerInline';
 import { hostnameOf, kurusToTry, modeLabel } from '../lib/format';
@@ -20,8 +22,10 @@ import { useAuthStore } from '../store/auth';
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const campaignsQuery = useCampaigns();
+  const [createOpen, setCreateOpen] = useState(false);
 
   const greetingName = user?.name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'orada';
+  const hasCampaigns = (campaignsQuery.data?.campaigns.length ?? 0) > 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -34,7 +38,10 @@ export function DashboardPage() {
             optimizasyon ajanını manuel olarak da tetikleyebilirsin.
           </p>
         </div>
-        <Button variant="secondary" disabled>
+        <Button
+          variant={hasCampaigns ? 'primary' : 'secondary'}
+          onClick={() => setCreateOpen(true)}
+        >
           Yeni kampanya
         </Button>
       </header>
@@ -57,7 +64,7 @@ export function DashboardPage() {
         ) : campaignsQuery.error ? (
           <ErrorState error={campaignsQuery.error} onRetry={() => campaignsQuery.refetch()} />
         ) : campaignsQuery.data?.campaigns.length === 0 ? (
-          <EmptyState />
+          <EmptyState onCreate={() => setCreateOpen(true)} />
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {campaignsQuery.data?.campaigns.map((c) => (
@@ -68,6 +75,8 @@ export function DashboardPage() {
           </ul>
         )}
       </section>
+
+      <NewCampaignModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }
@@ -138,13 +147,13 @@ function prettyTitle(url: string): string {
   }
 }
 
-function EmptyState() {
+function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <Card padding="lg" className="flex flex-col items-start gap-4">
-      <div className="w-12 h-12 rounded-md bg-accent-tint flex items-center justify-center">
+    <Card padding="lg" className="flex flex-col items-center gap-5 text-center py-12">
+      <div className="w-14 h-14 rounded-md bg-accent-tint flex items-center justify-center">
         <svg
-          width="22"
-          height="22"
+          width="26"
+          height="26"
           viewBox="0 0 24 24"
           fill="none"
           role="img"
@@ -154,14 +163,14 @@ function EmptyState() {
           <path d="M4 12h16M12 4v16" stroke="#FF6B5C" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
-      <div>
-        <h3 className="text-h3 text-ink">Henüz kampanyan yok</h3>
-        <p className="text-body-md text-ink-muted max-w-md mt-1">
-          Bir ürün URL’i gir, ajan üç farklı stratejide reklam üretsin ve yayına alsın. Bütçeni biz
-          kollarız.
+      <div className="max-w-md">
+        <h3 className="text-h2 text-ink">Henüz kampanyan yok</h3>
+        <p className="text-body-md text-ink-muted mt-2">
+          Bir ürün URL’si ver, içerik ajanı üç stratejide reklam üretsin, yayın ajanı sandbox’a
+          aktarsın. Bütçeni biz kollarız.
         </p>
       </div>
-      <Button variant="primary" disabled>
+      <Button variant="primary" size="lg" onClick={onCreate}>
         İlk kampanyanı oluştur
       </Button>
     </Card>

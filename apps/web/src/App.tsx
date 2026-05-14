@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AccountsPage } from './pages/Accounts';
 import { CampaignDetailPage } from './pages/CampaignDetail';
 import { DashboardPage } from './pages/Dashboard';
 import { LoginPage } from './pages/Login';
@@ -37,6 +38,17 @@ export function App() {
           <ProtectedRoute>
             <AppShell>
               <CampaignDetailPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/accounts"
+        element={
+          <ProtectedRoute>
+            <AppShell>
+              <AccountsPage />
             </AppShell>
           </ProtectedRoute>
         }

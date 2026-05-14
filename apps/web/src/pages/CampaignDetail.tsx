@@ -1,12 +1,20 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
-import { useCampaign, useCampaignLogs, useInvalidateCampaign, useOptimizeNow } from '../api/hooks';
-import type { Ad, OptimizeNowResponse } from '../api/types';
+import {
+  useApproveNotification,
+  useCampaign,
+  useCampaignLogs,
+  useInvalidateCampaign,
+  useOptimizeNow,
+  useUpdateCampaignMode,
+} from '../api/hooks';
+import type { Ad, CampaignMode, OptimizeNowResponse } from '../api/types';
 import { AgentLogRow } from '../components/AgentLogRow';
 import { Button } from '../components/Button';
 import { Card, CardHeader } from '../components/Card';
 import { MetricNumber } from '../components/MetricNumber';
+import { NotificationsPanel } from '../components/NotificationsPanel';
 import { OptimizerToast } from '../components/OptimizerToast';
 import { Pill } from '../components/Pill';
 import { SpendChart } from '../components/SpendChart';
@@ -40,6 +48,8 @@ export function CampaignDetailPage() {
   const campaignQuery = useCampaign(id);
   const logsQuery = useCampaignLogs(id);
   const optimizeMutation = useOptimizeNow(id);
+  const modeMutation = useUpdateCampaignMode(id);
+  const approveFromToast = useApproveNotification(id);
   const invalidate = useInvalidateCampaign();
 
   const [toast, setToast] = useState<OptimizeNowResponse | null>(null);
@@ -94,10 +104,15 @@ export function CampaignDetailPage() {
         dailyBudgetKurus={campaign.dailyBudgetKurus}
         adCount={ads.length}
         optimizing={optimizeMutation.isPending}
+        modeSwitching={modeMutation.isPending}
+        onModeChange={(next) => {
+          if (next === campaign.mode) return;
+          modeMutation.mutate(next);
+        }}
         onOptimize={async () => {
           try {
             const res = await optimizeMutation.mutateAsync();
-            setToast(res);
+            setToast({ ...res, campaignMode: res.campaignMode ?? campaign.mode });
           } catch (err) {
             const msg = err instanceof ApiError ? err.message : 'Optimizasyon başarısız oldu.';
             // Render a one-off danger pill toast via setToast with a fake decision shape.
@@ -152,8 +167,10 @@ export function CampaignDetailPage() {
           </section>
         </div>
 
-        <aside className="min-w-0">
-          <Card padding="lg" className="sticky top-6">
+        <aside className="min-w-0 flex flex-col gap-6">
+          <NotificationsPanel campaignId={id} mode={campaign.mode} />
+
+          <Card padding="lg">
             <CardHeader
               title="Ajan Kararları"
               subtitle="En yeni karar en üstte"
@@ -184,6 +201,22 @@ export function CampaignDetailPage() {
       {toast ? (
         <OptimizerToast
           response={toast}
+          mode={toast.campaignMode ?? campaign.mode}
+          approving={approveFromToast.isPending}
+          onApprove={
+            typeof toast.notificationId === 'number'
+              ? async () => {
+                  if (typeof toast.notificationId !== 'number') return;
+                  try {
+                    await approveFromToast.mutateAsync(toast.notificationId);
+                    setToast(null);
+                    void invalidate(id);
+                  } catch {
+                    /* error already surfaced via mutation state */
+                  }
+                }
+              : undefined
+          }
           onDismiss={() => {
             setToast(null);
             void invalidate(id);
@@ -218,11 +251,13 @@ function BackLink() {
 
 interface CampaignHeaderProps {
   productUrl: string;
-  mode: 'OTOPILOT' | 'COPILOT';
+  mode: CampaignMode;
   status: 'active' | 'paused' | 'archived';
   dailyBudgetKurus: number;
   adCount: number;
   optimizing: boolean;
+  modeSwitching: boolean;
+  onModeChange: (next: CampaignMode) => void;
   onOptimize: () => void;
 }
 
@@ -233,12 +268,14 @@ function CampaignHeader({
   dailyBudgetKurus,
   adCount,
   optimizing,
+  modeSwitching,
+  onModeChange,
   onOptimize,
 }: CampaignHeaderProps) {
   const statusTone = status === 'active' ? 'success' : status === 'paused' ? 'warning' : 'neutral';
   const statusLabel =
     status === 'active' ? 'Aktif' : status === 'paused' ? 'Duraklatıldı' : 'Arşivli';
-  const modeTone = mode === 'OTOPILOT' ? 'navy' : 'accent';
+  const otherMode: CampaignMode = mode === 'OTOPILOT' ? 'COPILOT' : 'OTOPILOT';
 
   return (
     <Card padding="lg" className="flex flex-col gap-5">
@@ -248,7 +285,11 @@ function CampaignHeader({
             <Pill tone={statusTone} dot>
               {statusLabel}
             </Pill>
-            <Pill tone={modeTone}>{modeLabel(mode)}</Pill>
+            <ModePillToggle
+              mode={mode}
+              switching={modeSwitching}
+              onChange={() => onModeChange(otherMode)}
+            />
             <span className="font-mono text-[11px] text-ink-subtle">{hostnameOf(productUrl)}</span>
           </div>
           <h1 className="text-h1 text-ink">Demlik Pro — Akıllı Çay Demleme Cihazı</h1>
@@ -316,6 +357,56 @@ function CampaignHeader({
         />
       </div>
     </Card>
+  );
+}
+
+interface ModePillToggleProps {
+  mode: CampaignMode;
+  switching: boolean;
+  onChange: () => void;
+}
+
+/**
+ * Mode pill that doubles as a toggle. Click → PATCH the campaign's mode.
+ * Tones per spec: success for Otopilot, info for Co-Pilot.
+ */
+function ModePillToggle({ mode, switching, onChange }: ModePillToggleProps) {
+  const otherLabel = mode === 'OTOPILOT' ? 'Co-Pilot' : 'Otopilot';
+  const tone =
+    mode === 'OTOPILOT'
+      ? {
+          bg: 'bg-[color-mix(in_srgb,var(--color-success)_16%,transparent)]',
+          text: 'text-success',
+          dot: 'bg-success',
+        }
+      : {
+          bg: 'bg-[color-mix(in_srgb,var(--color-info)_16%,transparent)]',
+          text: 'text-info',
+          dot: 'bg-info',
+        };
+
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={switching}
+      aria-label={`Modu ${otherLabel} olarak değiştir`}
+      title={`${otherLabel}’a geç`}
+      className={cn(
+        'inline-flex items-center gap-1.5 h-6 px-2 rounded-sm text-[12px] font-medium leading-none whitespace-nowrap',
+        'transition-colors duration-150 focus-visible:outline-none',
+        'disabled:opacity-60 disabled:cursor-not-allowed',
+        tone.bg,
+        tone.text,
+      )}
+    >
+      {switching ? (
+        <SpinnerInline size={10} className="text-current" />
+      ) : (
+        <span className={cn('w-1.5 h-1.5 rounded-full', tone.dot)} aria-hidden />
+      )}
+      {modeLabel(mode)}
+    </button>
   );
 }
 
