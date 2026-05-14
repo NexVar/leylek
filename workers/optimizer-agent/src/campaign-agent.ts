@@ -17,7 +17,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { GoogleGenAI, Type } from '@google/genai';
 import { schema } from '@leylek/db';
 import { OPTIMIZER_AGENT_SYSTEM, OPTIMIZER_AGENT_USER } from '@leylek/prompts';
-import { OptimizerDecision } from '@leylek/shared-types';
+import { type AgentAction, OptimizerDecision } from '@leylek/shared-types';
 import { and, eq, gte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 
@@ -238,18 +238,49 @@ export class CampaignAgent extends DurableObject<Env> {
       );
     }
 
-    // 6. Dispatch atomic action via publisher-agent Service Binding.
+    // 6. Branch on campaign.mode for non-KEEP decisions.
+    //    - KEEP             → log only, no side effect (both modes).
+    //    - OTOPILOT         → dispatch atomic action to publisher + log decision.action.
+    //                         Preserved verbatim from the pre-COPILOT codepath: the log
+    //                         keeps using the imperative `PAUSE_AD` / `REALLOCATE_BUDGET`
+    //                         / `RESUME_AD` strings, not the AgentAction past-tense form.
+    //    - COPILOT          → write notifications row + log PROPOSED_* action; do NOT dispatch.
+    //                         The full OptimizerDecision is serialised into
+    //                         notifications.payloadJson so the gateway's
+    //                         /:id/notifications/:notificationId/approve endpoint can
+    //                         re-execute the exact same dispatch without another Gemini call.
+    let notificationId: number | null = null;
+    let loggedAction: string = decision.action;
+
     if (decision.action !== 'KEEP') {
-      await this.dispatchAction(decision);
+      if (campaign.mode === 'COPILOT') {
+        const proposal = mapDecisionToProposal(decision);
+        const notifInsert = await db
+          .insert(schema.notifications)
+          .values({
+            userId: campaign.userId,
+            campaignId,
+            type: proposal.notificationType,
+            payloadJson: JSON.stringify(decision),
+            status: 'pending',
+          })
+          .returning({ id: schema.notifications.id });
+        notificationId = notifInsert[0]?.id ?? null;
+        loggedAction = proposal.proposedAction;
+      } else {
+        // OTOPILOT (and any other mode value falls through here to preserve behaviour):
+        // fire the publisher-agent now and log the imperative action verbatim.
+        await this.dispatchAction(decision);
+      }
     }
 
-    // 7. agent_logs row.
+    // 7. agent_logs row — same shape regardless of mode; only actionTaken differs.
     const inserted = await db
       .insert(schema.agentLogs)
       .values({
         campaignId,
         agentName: 'optimizer',
-        actionTaken: decision.action,
+        actionTaken: loggedAction,
         targetRef: decision.targetAdId != null ? String(decision.targetAdId) : null,
         reason: decision.reason,
         confidence: decision.confidence,
@@ -260,6 +291,8 @@ export class CampaignAgent extends DurableObject<Env> {
     const agentLogId = inserted[0]?.id ?? null;
 
     // 8. Update DO storage — rolling history (last 20), last metrics timestamp.
+    //    History records the Gemini decision verbatim, not the side-effect choice, so
+    //    OTOPILOT and COPILOT campaigns produce comparable decision chains for audit.
     const state = await this.loadState(campaignId);
     state.decisionHistory.push({
       at: new Date().toISOString(),
@@ -275,10 +308,13 @@ export class CampaignAgent extends DurableObject<Env> {
     await this.ctx.storage.put('state', state);
 
     // 9. Return shape for the gateway / frontend streaming line.
+    //    notificationId is non-null only for COPILOT proposals — the frontend uses it to
+    //    render an Approve / Reject CTA without a follow-up fetch.
     return Response.json({
       decision,
       reasoningStreamLine: decision.reason,
       agentLogId,
+      notificationId,
     });
   }
 
@@ -424,6 +460,45 @@ export class CampaignAgent extends DurableObject<Env> {
     };
     await this.ctx.storage.put('state', fresh);
     return fresh;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Decision → COPILOT proposal mapping.
+//
+// Produces the pair of strings written for a COPILOT proposal:
+//   - notifications.type  — consumed by the frontend to pick the right CTA
+//   - agent_logs.action_taken — `PROPOSED_*` form so analytics distinguish a
+//     proposal from an executed action.
+//
+// Note on `PROPOSED_RESUME`: the `AgentAction` Zod enum in @leylek/shared-types
+// currently lists `PROPOSED_PAUSE` and `PROPOSED_BUDGET_SHIFT` but not yet
+// `PROPOSED_RESUME`. The agent_logs.action_taken column is `text NOT NULL`
+// with no enum constraint at the DB level, so writing the string is safe;
+// a future shared-types update should add the missing member for parity with
+// the executed-side `RESUMED_AD`.
+// ---------------------------------------------------------------------------
+type ProposedAction = AgentAction | 'PROPOSED_RESUME';
+
+interface ProposalMapping {
+  notificationType: 'STOP_LOSS_PROPOSAL' | 'BUDGET_SHIFT_PROPOSAL' | 'RESUME_PROPOSAL';
+  proposedAction: ProposedAction;
+}
+
+function mapDecisionToProposal(decision: OptimizerDecision): ProposalMapping {
+  switch (decision.action) {
+    case 'PAUSE_AD':
+      return { notificationType: 'STOP_LOSS_PROPOSAL', proposedAction: 'PROPOSED_PAUSE' };
+    case 'REALLOCATE_BUDGET':
+      return {
+        notificationType: 'BUDGET_SHIFT_PROPOSAL',
+        proposedAction: 'PROPOSED_BUDGET_SHIFT',
+      };
+    case 'RESUME_AD':
+      return { notificationType: 'RESUME_PROPOSAL', proposedAction: 'PROPOSED_RESUME' };
+    case 'KEEP':
+      // Unreachable — caller guards `decision.action !== 'KEEP'` before invoking.
+      throw new Error('mapDecisionToProposal called with KEEP decision');
   }
 }
 
