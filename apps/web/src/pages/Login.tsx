@@ -187,7 +187,7 @@ export function LoginPage() {
           </a>
           <p className="text-body-sm text-ink-subtle text-center -mt-1">
             Google girişi için Cloud Console redirect-URI kurulumu gerekir (bkz.{' '}
-            <span className="font-mono">docs/DEMO_PLAYBOOK.md §9</span>). Hazır değilse e-posta
+            <span className="font-mono">docs/DEMO_PLAYBOOK.md §10</span>). Hazır değilse e-posta
             bağlantısı her zaman çalışır.
           </p>
 

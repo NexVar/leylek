@@ -7,6 +7,96 @@
 
 ---
 
+## Wave 5 — PRD §4 MVP closing pass (2026-05-19)
+
+**Trigger:** the user reset the goal with `prd deki her şey bitene kadar
+durma bu sefer` — finish every MVP item PRD §4 lists, not just the
+60-second hero path.
+
+**Shipped (3 parallel agents → integrated):**
+
+- **Real magic-link auth (PRD §9 yedek).** `POST /api/auth/magic-link/request`
+  mints a 73-char URL-safe token, persists `magic_link:<token>` to KV for
+  10 min, sends a Turkish HTML + text email via Resend. `GET /verify`
+  upserts a `provider='magic_link'` user, issues the same JWT cookie
+  helper Google OAuth uses, 302s to APP_URL. Resend free-tier sandbox
+  rejects non-account-owner recipients; on 4xx we degrade to
+  `200 {sent:false, devLink:<verifyUrl>}` when `LEYLEK_ALLOW_DEV_LOGIN=true`
+  so the demo + E2E have a paste-through path, else 502 so the UI
+  surfaces "sağlayıcı reddetti".
+- **Co-Pilot mode end-to-end (PRD §7).** Optimizer DO branches on
+  `campaigns.mode`. OTOPILOT: identical executed path. COPILOT: inserts
+  a `notifications` row with the full OptimizerDecision in `payloadJson`
+  + a `PROPOSED_PAUSE / PROPOSED_BUDGET_SHIFT / PROPOSED_RESUME`
+  agent_log; no publisher dispatch. The DO returns `{notificationId}`
+  so the frontend's `OptimizerToast` can render the "ÖNERİ HAZIR"
+  variant with an inline "Onayla" button. Gateway endpoints
+  `/notifications/:id/approve` and `/reject` replay the decision via
+  publisher Service Binding (no second Gemini call) and write
+  `COPILOT_APPROVED` / `COPILOT_REJECTED` logs. `PATCH /api/campaigns/:id`
+  accepts `{mode}` for mid-demo OTOPILOT↔COPILOT flips with a
+  `MODE_CHANGED` audit row.
+- **`Notifications` shared types extended.** `AgentAction` Zod enum now
+  carries the proposal + ops variants (`PROPOSED_RESUME`,
+  `COPILOT_APPROVED`, `COPILOT_REJECTED`, `MODE_CHANGED`,
+  `OPTIMIZER_FAILED`) so the frontend can type-narrow on the action.
+- **Frontend.**
+  - `pages/Login.tsx`: dev-login button removed. New magic-link form
+    sends the email, swaps in a confirmation panel ("E-posta
+    gönderildi"), and when the gateway responds with `devLink` (Resend
+    rejected), exposes it as a coral "Doğrudan giriş bağlantısını aç"
+    link inside a warning Pill.
+  - `pages/Dashboard.tsx`: the "Yeni kampanya" CTA opens a real
+    `NewCampaignModal` (URL + budget + OTOPILOT/COPILOT segmented
+    toggle) that runs the full create chain (content-agent → D1 →
+    publisher).
+  - `pages/CampaignDetail.tsx`: header mode toggle Pill, right-column
+    `NotificationsPanel` for `pending` proposals with Onayla / Reddet,
+    `OptimizerToast` Co-Pilot variant with inline "Onayla" CTA and
+    auto-dismiss suppression while an approve action is showing.
+  - `pages/Accounts.tsx` (new): connected accounts list + disconnect +
+    Meta / Google Ads connect buttons that gracefully render the 503
+    `oauth_not_wired` detail as a warning Pill ("Faz 2'de geliyor").
+  - New primitives: `Modal`, `SegmentedToggle`, `NewCampaignModal`,
+    `NotificationsPanel`.
+  - 8 new TanStack Query hooks: `useMagicLinkRequest`,
+    `useCreateCampaign`, `useUpdateCampaignMode`, `useNotifications`,
+    `useApproveNotification`, `useRejectNotification`, `useAccounts`,
+    `useDisconnectAccount`. `useDevLogin` kept for E2E.
+- **Connected-accounts API (PRD §9).** `GET /api/auth/accounts` lists
+  with encrypted-token columns stripped from the SELECT projection;
+  `POST /api/auth/accounts/:id/disconnect` is owner-gated, sets
+  status='revoked' and nulls the token columns. Meta + Google Ads
+  start/callback/accounts return typed 503 `{error:'oauth_not_wired'}`
+  with Turkish detail copy.
+
+**E2E updated.** `./scripts/e2e-demo.sh` now walks the real magic-link
+UI: type email → click "E-postaya giriş bağlantısı gönder" → wait for
+the confirmation panel → click the inline "Doğrudan giriş bağlantısını
+aç" link. Direct-link ref resolved via JSON snapshot lookup because
+the accessible name carries a screen-reader suffix. Green end-to-end.
+
+**Verified (curl + browser):**
+- Magic link: `POST /magic-link/request` → `200 {sent:false, devLink}`.
+  Following the devLink sets the session cookie and lands the user on
+  `/dashboard`.
+- Co-Pilot: campaign flipped to COPILOT, optimize-now creates a
+  `STOP_LOSS_PROPOSAL` notification with the AGGRESSIVE ad still
+  active; approve → publisher pauses + COPILOT_APPROVED log.
+- Connected accounts: list returns the seeded `google_ads` row;
+  Meta start returns the 503 with detail.
+- Screenshots in `e2e-out/`: 06-copilot-toast, 07-copilot-approved,
+  08-accounts, 09-create-modal.
+
+**What I deliberately did NOT do (still consistent with PRD §17 Faz 2):**
+- Real Meta Marketing API + Conversions API integration (Faz 2).
+- Real Google Ads OAuth UI (developer-token Standard access required).
+- Web push notifications (PRD §18 open question; magic-link via Resend
+  is the only push channel today).
+- Billing / multi-tenant / Shopify (PRD §13–§14 vision-only).
+
+---
+
 ## Wave 4 — Honesty pass + UX cleanup (2026-05-19)
 
 **Trigger:** the user noticed two real issues that Wave 3 silently glossed over:

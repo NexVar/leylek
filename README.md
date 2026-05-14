@@ -17,13 +17,20 @@ Cloudflare Workers + Google Gemini 2.5 üzerinde çalışan **multi-agent** yapa
 | Gateway / API | https://leylek-gateway.batuhanbayazitt.workers.dev |
 | `/api/health` (5-Worker probe) | [link](https://leylek-gateway.batuhanbayazitt.workers.dev/api/health) |
 
-**Demo girişi:** `batuhanbayazitt@gmail.com` (seeded). Gerçek Google OAuth da
-çalışıyor; demo akışı dev-login üzerinden ilerlediği için jüri 1 saniyede
-giriş yapar.
+**Demo girişi:** Magic-link (Resend) — `batuhanbayazitt@gmail.com` yaz,
+"E-postaya giriş bağlantısı gönder"e tıkla. Resend sandbox tarafında
+reddederse gateway aynı sayfada "Doğrudan giriş bağlantısını aç" link'i
+gösteriyor (dev-login fallback). Google ile Giriş Yap da kurulu; Cloud
+Console redirect-URI eklendiğinde çalışır (bkz.
+[DEMO_PLAYBOOK §10](./docs/DEMO_PLAYBOOK.md)).
 
-**60 saniyelik akış:** [docs/DEMO_PLAYBOOK.md](./docs/DEMO_PLAYBOOK.md).
-Demo öncesi reset: `pnpm db:seed` (idempotent). Full E2E doğrulama
-(seed + browser flow + assertions): `./scripts/e2e-demo.sh`.
+**Otopilot + Co-Pilot:** Otopilot 60 saniyelik aha anı; Co-Pilot için
+kampanya başlığındaki **Otopilot / Co-Pilot** pill'ine tıklayıp tekrar
+"Şimdi Optimize Et" de — bu kez ajan kararı **öneri** olarak düşüyor,
+kullanıcı **Onayla** butonuyla yayın ajanını tetikliyor (PRD §7).
+
+**Akış:** [docs/DEMO_PLAYBOOK.md](./docs/DEMO_PLAYBOOK.md). Reset:
+`pnpm db:seed` (idempotent). E2E: `./scripts/e2e-demo.sh`.
 
 ## Mimari özeti
 

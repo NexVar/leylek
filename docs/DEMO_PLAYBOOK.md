@@ -112,7 +112,42 @@ The risk table flags a "wifi/Meta API outage" scenario for live demo. Mitigation
 - [ ] Repo public (per PRD §9 public-flip checklist)?
 - [ ] Gemini quota usage logged (`https://ai.dev/rate-limit`)?
 
-## 9. Enabling the real Google OAuth button (one-time setup)
+## 9. Co-Pilot mode walkthrough (optional, ~30 seconds extra)
+
+The 60-second jury hero is Otopilot. If a juror probes "what about
+human-in-the-loop?", flip into Co-Pilot live:
+
+1. On the campaign header, click the **Otopilot** mode pill — it
+   toggles to **Co-Pilot** (info-blue) via
+   `PATCH /api/campaigns/:id`. A `MODE_CHANGED` row lands in the
+   timeline immediately.
+2. Click **Şimdi Optimize Et**. The optimizer DO still calls Gemini and
+   still reasons through the same metrics, but instead of executing the
+   pause it writes a `notifications` row (`STOP_LOSS_PROPOSAL`) with the
+   full decision payload, and logs `PROPOSED_PAUSE`.
+3. The toast slides in with the **"ÖNERİ HAZIR"** heading (not
+   "Reklam Durduruldu"), a **"Durdurma Önerisi"** action pill, and an
+   inline coral **Onayla** button.
+4. Clicking Onayla calls the gateway's
+   `/notifications/:id/approve` — which replays the decision via
+   publisher Service Binding without a second Gemini call — and the
+   AGGRESSIVE ad flips to "Durduruldu". Two new log rows appear:
+   `publisher PAUSED_AD` and `publisher COPILOT_APPROVED`.
+
+Audit trail under the hood (newest first):
+
+```
+publisher  COPILOT_APPROVED   target=<adId>
+publisher  PAUSED_AD          target=<adId>
+optimizer  PROPOSED_PAUSE     target=<adId>
+optimizer  MODE_CHANGED       target=<campaignId>
+publisher  CREATED_AD         target=<adId> (×3 from seed)
+```
+
+To go back: flip the pill again — it writes another `MODE_CHANGED` row
+and future `optimize-now` calls return to direct execution.
+
+## 10. Enabling the real Google OAuth button (one-time setup)
 
 The **Demo girişi** path works out of the box. The **Google ile Giriş Yap**
 button, however, requires a one-time Google Cloud Console configuration —
