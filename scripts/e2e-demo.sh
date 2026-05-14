@@ -64,18 +64,21 @@ echo "  campaign id = ${CAMPAIGN_ID}"
 echo ""
 echo "${BOLD}▸ 3/6 Driving the browser through the demo flow${RESET}"
 
-# Close any previous session AND wipe the session cookie so the dev-login
+# Close any previous session AND wipe the session cookie so the magic-link
 # flow always runs from a clean state.
 agent-browser close --all >/dev/null 2>&1 || true
 
-# Step A — log in via the dev-login form (skips Google OAuth consent).
+# Step A — magic-link send. Demo Pages → Workers is cross-origin, so the
+# magic-link UI is the real demo path: email in, send, the gateway either
+# delivers via Resend (production) or — when the Resend free-tier sandbox
+# refuses + LEYLEK_ALLOW_DEV_LOGIN is on — surfaces the verify URL inline
+# as a coral "Doğrudan giriş bağlantısını aç" link. We follow that link.
 agent-browser open "$APP_URL/login" --args "--no-sandbox" > /dev/null
-# In case the previous run left a session cookie on disk, drop it.
 agent-browser cookies clear >/dev/null 2>&1 || true
 agent-browser reload >/dev/null 2>&1 || true
 agent-browser wait --text 'Giriş yap' > /dev/null
 agent-browser screenshot "$OUT_DIR/01-login.png" > /dev/null
-# Snapshot to discover the email input ref deterministically.
+
 EMAIL_REF="$(agent-browser snapshot -i --json 2>/dev/null \
   | python3 -c 'import json,sys
 data=json.load(sys.stdin)
@@ -85,10 +88,29 @@ for k,v in refs.items():
     print(k); break')"
 test -n "$EMAIL_REF" || { echo "${RED}could not find email input${RESET}" >&2; exit 1; }
 agent-browser fill "$EMAIL_REF" "$DEMO_EMAIL" > /dev/null
-agent-browser find role button click --name 'Demo girişi' > /dev/null
+agent-browser find role button click --name 'E-postaya giriş bağlantısı gönder' > /dev/null
 
-# Step B — wait for dashboard, capture. The eyebrow text "HOŞ GELDİN" is
-# CSS-uppercased; match the heading line instead, which is locale-stable.
+# Step B — confirmation panel renders. When Resend rejects the recipient
+# (sandbox sender), the panel adds a "Doğrudan giriş bağlantısını aç"
+# coral link straight to the verify URL.
+agent-browser wait --text 'E-posta gönderildi' > /dev/null
+agent-browser screenshot "$OUT_DIR/02a-magic-sent.png" > /dev/null
+
+# Step C — follow the dev-mode direct link. In a real-Resend deploy this
+# would come from the email client; in the demo it lands in the UI.
+# The link's accessible name carries a screen-reader suffix ("Aynı sekmede aç")
+# so we resolve its ref dynamically rather than match on --name.
+DIRECT_REF="$(agent-browser snapshot -i --json 2>/dev/null \
+  | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+refs = data.get("data", {}).get("refs", {})
+for k, v in refs.items():
+    if v.get("role") == "link" and "Doğrudan" in v.get("name", ""):
+        print(k); break
+')"
+test -n "$DIRECT_REF" || { echo "${RED}could not find direct-link in sent panel${RESET}" >&2; exit 1; }
+agent-browser click "$DIRECT_REF" > /dev/null
 agent-browser wait --text 'ajanların görevde' > /dev/null
 agent-browser screenshot "$OUT_DIR/02-dashboard.png" > /dev/null
 
