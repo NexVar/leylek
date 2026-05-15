@@ -75,8 +75,10 @@ agent-browser close --all >/dev/null 2>&1 || true
 # as a coral "Doğrudan giriş bağlantısını aç" link. We follow that link.
 agent-browser open "$APP_URL/login" --args "--no-sandbox" > /dev/null
 agent-browser cookies clear >/dev/null 2>&1 || true
-agent-browser reload >/dev/null 2>&1 || true
-agent-browser wait --text 'Giriş yap' > /dev/null
+# Reopen instead of reload — `reload` after `cookies clear` occasionally races
+# with the SPA's auth check; a fresh navigation is more deterministic.
+agent-browser open "$APP_URL/login" > /dev/null
+agent-browser wait --text 'E-postaya giriş bağlantısı gönder' > /dev/null
 agent-browser screenshot "$OUT_DIR/01-login.png" > /dev/null
 
 EMAIL_REF="$(agent-browser snapshot -i --json 2>/dev/null \
