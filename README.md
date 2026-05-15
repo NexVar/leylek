@@ -20,9 +20,11 @@ Cloudflare Workers + Google Gemini 2.5 üzerinde çalışan **multi-agent** yapa
 **Demo girişi:** Magic-link (Resend) — `batuhanbayazitt@gmail.com` yaz,
 "E-postaya giriş bağlantısı gönder"e tıkla. Resend sandbox tarafında
 reddederse gateway aynı sayfada "Doğrudan giriş bağlantısını aç" link'i
-gösteriyor (dev-login fallback). Google ile Giriş Yap da kurulu; Cloud
-Console redirect-URI eklendiğinde çalışır (bkz.
-[DEMO_PLAYBOOK §10](./docs/DEMO_PLAYBOOK.md)).
+gösteriyor (dev-login fallback). **Google ile Giriş Yap butonu default'ta
+gizli** (`LEYLEK_GOOGLE_OAUTH_READY=false`) — Cloud Console redirect-URI
+kaydı yapılmadan tıklayan kullanıcı `redirect_uri_mismatch` hatası alır,
+bu yüzden butonu UI'dan tamamen kaldırıyoruz. Kurulum +
+flag flip için: [DEMO_PLAYBOOK §10](./docs/DEMO_PLAYBOOK.md).
 
 **Otopilot + Co-Pilot:** Otopilot 60 saniyelik aha anı; Co-Pilot için
 kampanya başlığındaki **Otopilot / Co-Pilot** pill'ine tıklayıp tekrar

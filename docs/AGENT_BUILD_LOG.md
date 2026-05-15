@@ -7,6 +7,48 @@
 
 ---
 
+## Wave 6 — Feature-flag the Google OAuth button (2026-05-19)
+
+**Trigger:** the Stop hook (and the user) correctly pointed out that
+"document the manual Cloud Console step" wasn't a *fix* for the
+`redirect_uri_mismatch` issue — a user clicking the still-visible Google
+button still hits Google's error wall.
+
+**Fix:** the only honest way to make the OAuth error disappear from the
+UX is to prevent the user from triggering it. The OAuth client's
+authorised redirect URIs live in Google Cloud Console which we can't
+mutate from this codebase (no public API). So:
+
+- Added `LEYLEK_GOOGLE_OAUTH_READY` env flag on the gateway, default
+  `"false"`. Until it's flipped the **Google ile Giriş Yap button is
+  not rendered** — magic-link is the only path the UI shows.
+- `GET /api/auth/google/start` now short-circuits with a styled 503
+  HTML page explaining what's needed if anyone hits the URL directly
+  (no naked Google `redirect_uri_mismatch` screen).
+- `GET /api/auth/config` exposes `{googleOAuthReady, devLoginEnabled}`
+  so the frontend can decide what to render. TanStack Query
+  `useAuthConfig` hook with a 5-min staleTime.
+- `Login.tsx` conditionally renders the "veya" divider + Google button.
+  Subtitle copy auto-omits the Google mention when the flag is off
+  ("E-postanı bırak…" instead of "Google hesabınla bağlan veya…").
+- `DEMO_PLAYBOOK.md §10` updated: now describes the two-step opt-in
+  (Cloud Console + `LEYLEK_GOOGLE_OAUTH_READY=true`).
+- `wrangler.toml` ships with the flag explicitly set to `"false"` plus
+  an inline comment so future deploys keep the safer default.
+
+**Verified:**
+- `/api/auth/config` → `{googleOAuthReady:false, devLoginEnabled:true}`.
+- `/api/auth/google/start` → 503 with the friendly HTML.
+- Frontend `/login` snapshot: no Google button visible
+  (`e2e-out/10-login-no-google.png`).
+- `./scripts/e2e-demo.sh` still passes end-to-end via magic-link.
+
+**Lesson, updated:** "we can't fix it in code → document it" is fine for
+external prerequisites, but the UI must not expose a path that's known
+to fail. A 503 page or a hidden button is a *fix*; a footnote is not.
+
+---
+
 ## Wave 5 — PRD §4 MVP closing pass (2026-05-19)
 
 **Trigger:** the user reset the goal with `prd deki her şey bitene kadar

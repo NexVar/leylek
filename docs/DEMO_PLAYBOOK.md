@@ -149,13 +149,20 @@ and future `optimize-now` calls return to direct execution.
 
 ## 10. Enabling the real Google OAuth button (one-time setup)
 
-The **Demo girişi** path works out of the box. The **Google ile Giriş Yap**
-button, however, requires a one-time Google Cloud Console configuration —
-the deploy created a worker on a new domain that isn't registered as an
-authorised redirect URI on the existing OAuth client.
+**By default the Google OAuth button is hidden in the UI** and
+`/api/auth/google/start` returns a friendly 503 explanation page — so a
+user can NOT trigger `Error 400: redirect_uri_mismatch` from this app.
+The flag controlling visibility is `LEYLEK_GOOGLE_OAUTH_READY`
+(default `"false"`) on the gateway Worker.
 
-If you don't need real Google login on stage, **skip this section** — the
-jury demo uses the dev-login path.
+If you don't need Google login on stage, **skip this section** — the
+demo runs entirely on magic-link.
+
+To turn Google OAuth on, do BOTH of:
+  1. Cloud Console steps below — without them Google rejects the flow.
+  2. Flip `LEYLEK_GOOGLE_OAUTH_READY=true` in `workers/gateway/wrangler.toml`
+     and redeploy the gateway. The frontend's `/api/auth/config` query
+     auto-shows the Google button on next page load.
 
 ### Step 1 — Authorise the production redirect URI
 
