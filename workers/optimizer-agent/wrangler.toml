@@ -10,6 +10,9 @@ enabled = true
 # in production (PRD §10) once Google Ads dev_token Standard access lands.
 [vars]
 LEYLEK_AD_PLATFORM = "sim"
+# Frontend origin — used to build the Co-Pilot notification email deep-link.
+APP_URL = "https://leylek-web.pages.dev"
+RESEND_FROM_EMAIL = "Leylek <onboarding@resend.dev>"
 
 # Durable Object — per-campaign agent state
 [[durable_objects.bindings]]
@@ -40,3 +43,4 @@ service = "leylek-publisher-agent"
 
 # Secrets:
 #   GEMINI_API_KEY
+#   RESEND_API_KEY
