@@ -7,6 +7,42 @@
 
 ---
 
+## Wave 7 — Co-Pilot email notifications (PRD §7) (2026-05-19)
+
+**Trigger:** PRD §7 Co-Pilot akışı specifies "Push notification + e-mail
+(Resend) kullanıcıya gönderilir". Wave 5 wired the in-app notification
+panel but skipped the email half. Closing that.
+
+**Shipped:**
+- `optimizer-agent/wrangler.toml` + `env.ts` gain `APP_URL`,
+  `RESEND_API_KEY`, `RESEND_FROM_EMAIL` so the DO can send email
+  without crossing back through the gateway.
+- `CampaignAgent.sendCopilotProposalEmail` (new private method):
+  fire-and-forget via `ctx.waitUntil`, Turkish HTML + plain-text body
+  containing the Gemini reasoning, confidence percentage, and a coral
+  CTA back to `/campaigns/:id`. Non-2xx Resend responses are logged
+  with the body but never thrown — the proposal is already in D1 and
+  the in-app `NotificationsPanel` is the source of truth.
+- `RESEND_API_KEY` secret pushed to `leylek-optimizer-agent` via
+  `wrangler secret put`. `scripts/setup-cloudflare-secrets.sh` updated
+  to include the optimizer-agent mapping so future re-pushes stay
+  complete.
+- `docs/AGENT_DECISIONS.md` new §9 documenting the Resend free-tier
+  sandbox limitation (only delivers to the account owner's address)
+  and the two paths through it.
+
+**Verified:**
+- Direct Resend probe with the demo recipient confirmed
+  `403 "You can only send testing emails to your own email address
+  (sweetsavagetr@gmail.com)"`. The DO's fire-and-forget logs this and
+  the optimize-now flow still returns the decision + notificationId
+  on time.
+- Co-Pilot flow end-to-end still green via API: PATCH mode→COPILOT,
+  optimize-now → proposal in D1, approve replays the publisher
+  dispatch.
+
+---
+
 ## Wave 6 — Feature-flag the Google OAuth button (2026-05-19)
 
 **Trigger:** the Stop hook (and the user) correctly pointed out that

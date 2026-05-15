@@ -122,7 +122,32 @@ PRD has `optimizer-agent` every 6h and `analytics-worker` every 15min. Both
 kept; the demo path uses the manual `POST /internal/optimize/:campaignId`
 trigger so no waiting is needed in the 60-second flow.
 
-## 9. Things deliberately NOT done in this build-out
+## 9. Resend sandbox + Co-Pilot email delivery
+
+The Resend API key in `.env` belongs to a free-tier account registered to
+`sweetsavagetr@gmail.com`. Free tier with the default `onboarding@resend.dev`
+sender will **only deliver to that exact address**; anything else returns
+`403 validation_error`.
+
+Two flows hit Resend:
+
+- **Magic-link** (`gateway`): on Resend reject, gateway degrades to
+  `200 {sent: false, devLink}` when `LEYLEK_ALLOW_DEV_LOGIN=true`,
+  surfacing the verify URL inline in the UI. Demo + E2E ride this path.
+- **Co-Pilot proposal** (`optimizer-agent`, PRD §7): after writing a
+  `notifications` row, the DO fires a `ctx.waitUntil` Resend POST with
+  a Turkish HTML + plain-text body containing the Gemini reasoning and
+  a deep-link back to `/campaigns/:id`. On a non-2xx the response body
+  is logged but never bubbles up — the proposal is already persisted
+  in D1 and the in-app `NotificationsPanel` is the primary notification
+  surface; the email is an additional channel.
+
+To make Co-Pilot emails actually land in inboxes on stage, either
+verify a domain at `resend.com/domains` (then change `RESEND_FROM_EMAIL`
+to `notifications@yourdomain.com`), or temporarily seed the demo user
+with `sweetsavagetr@gmail.com` so Resend accepts the recipient.
+
+## 10. Things deliberately NOT done in this build-out
 
 - **Meta Marketing API real implementation** — Faz 2 per PRD §10.
 - **Magic-link auth** — stub remains; real Google OAuth + dev-login covers the
