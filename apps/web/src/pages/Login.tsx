@@ -2,7 +2,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, GATEWAY_URL } from '../api/client';
-import { useMe, useRequestMagicLink } from '../api/hooks';
+import { useAuthConfig, useMe, useRequestMagicLink } from '../api/hooks';
 import type { MagicLinkRequestResponse } from '../api/types';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -23,6 +23,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const me = useMe();
+  const authConfig = useAuthConfig();
+  const googleOAuthReady = authConfig.data?.googleOAuthReady === true;
   const setUser = useAuthStore((s) => s.setUser);
   const requestMagicLink = useRequestMagicLink();
 
@@ -137,8 +139,11 @@ export function LoginPage() {
             </Pill>
             <h2 className="text-h1 text-ink">Giriş yap</h2>
             <p className="text-body-md text-ink-muted">
-              Otonom reklam ajanına hoş geldin. Google hesabınla bağlan veya e-postanı bırak, sana
-              tek tıkla giriş bağlantısı gönderelim.
+              Otonom reklam ajanına hoş geldin.{' '}
+              {googleOAuthReady
+                ? 'Google hesabınla bağlan veya e-postanı bırak, '
+                : 'E-postanı bırak, '}
+              sana tek tıkla giriş bağlantısı gönderelim.
             </p>
           </header>
 
@@ -172,24 +177,23 @@ export function LoginPage() {
             </form>
           )}
 
-          <div className="flex items-center gap-3 text-body-sm text-ink-subtle">
-            <span className="flex-1 h-px bg-border" />
-            veya
-            <span className="flex-1 h-px bg-border" />
-          </div>
+          {googleOAuthReady ? (
+            <>
+              <div className="flex items-center gap-3 text-body-sm text-ink-subtle">
+                <span className="flex-1 h-px bg-border" />
+                veya
+                <span className="flex-1 h-px bg-border" />
+              </div>
 
-          <a
-            href={`${GATEWAY_URL}/api/auth/google/start`}
-            className="w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-md border border-primary text-primary bg-transparent hover:bg-primary/[0.04] transition-colors duration-150 text-[15px] font-medium"
-          >
-            <GoogleGlyph />
-            Google ile Giriş Yap
-          </a>
-          <p className="text-body-sm text-ink-subtle text-center -mt-1">
-            Google girişi için Cloud Console redirect-URI kurulumu gerekir (bkz.{' '}
-            <span className="font-mono">docs/DEMO_PLAYBOOK.md §10</span>). Hazır değilse e-posta
-            bağlantısı her zaman çalışır.
-          </p>
+              <a
+                href={`${GATEWAY_URL}/api/auth/google/start`}
+                className="w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-md border border-primary text-primary bg-transparent hover:bg-primary/[0.04] transition-colors duration-150 text-[15px] font-medium"
+              >
+                <GoogleGlyph />
+                Google ile Giriş Yap
+              </a>
+            </>
+          ) : null}
 
           <p className="text-body-sm text-ink-subtle">
             Devam ederek{' '}
