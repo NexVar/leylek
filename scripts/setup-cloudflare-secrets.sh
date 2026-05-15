@@ -72,8 +72,9 @@ MAPPINGS=(
   # content-agent — only needs the LLM
   "leylek-content-agent:GEMINI_API_KEY"
 
-  # optimizer-agent — same, only the LLM
+  # optimizer-agent — LLM + Resend for Co-Pilot proposal notification emails (PRD §7)
   "leylek-optimizer-agent:GEMINI_API_KEY"
+  "leylek-optimizer-agent:RESEND_API_KEY"
 
   # publisher-agent — pushes to Meta + Google Ads, needs decryption key
   "leylek-publisher-agent:META_APP_ID"

@@ -267,6 +267,26 @@ export class CampaignAgent extends DurableObject<Env> {
           .returning({ id: schema.notifications.id });
         notificationId = notifInsert[0]?.id ?? null;
         loggedAction = proposal.proposedAction;
+
+        // PRD §7 Co-Pilot akışı: gönder e-posta üzerinden öneri bildirimi.
+        // Fire-and-forget — Resend reddederse demo akışı bunu beklemesin.
+        // User lookup is best-effort; missing email just skips the send.
+        const targetUser = await db.query.users.findFirst({
+          where: eq(schema.users.id, campaign.userId),
+        });
+        if (targetUser?.email && notificationId != null) {
+          this.ctx.waitUntil(
+            this.sendCopilotProposalEmail({
+              to: targetUser.email,
+              userName: targetUser.name ?? 'Leylek kullanıcısı',
+              campaignId,
+              campaignUrl: campaign.productUrl,
+              proposalKind: proposal.notificationType,
+              reason: decision.reason,
+              confidence: decision.confidence,
+            }),
+          );
+        }
       } else {
         // OTOPILOT (and any other mode value falls through here to preserve behaviour):
         // fire the publisher-agent now and log the imperative action verbatim.
@@ -461,6 +481,110 @@ export class CampaignAgent extends DurableObject<Env> {
     await this.ctx.storage.put('state', fresh);
     return fresh;
   }
+
+  // -------------------------------------------------------------------------
+  // Co-Pilot notification email (PRD §7)
+  //
+  // Fired from `ctx.waitUntil`, so the optimize-now response doesn't wait on
+  // Resend. Failures are logged but never bubble up — the proposal is already
+  // persisted in D1; the email is a notification channel, not the source of
+  // truth. Resend's free-tier sandbox only delivers to the account-owner's
+  // address; recipients outside that show up here as a non-2xx and we just
+  // log the body. The user can still see the proposal in the UI.
+  // -------------------------------------------------------------------------
+  private async sendCopilotProposalEmail(input: {
+    to: string;
+    userName: string;
+    campaignId: number;
+    campaignUrl: string;
+    proposalKind: 'STOP_LOSS_PROPOSAL' | 'BUDGET_SHIFT_PROPOSAL' | 'RESUME_PROPOSAL';
+    reason: string;
+    confidence: number;
+  }): Promise<void> {
+    if (!this.env.RESEND_API_KEY) {
+      console.warn('[campaign-agent] RESEND_API_KEY missing — skipping Co-Pilot email');
+      return;
+    }
+
+    const kindLabel = {
+      STOP_LOSS_PROPOSAL: 'Reklam durdurma önerisi',
+      BUDGET_SHIFT_PROPOSAL: 'Bütçe kaydırma önerisi',
+      RESUME_PROPOSAL: 'Reklamı yeniden başlatma önerisi',
+    }[input.proposalKind];
+
+    const deepLink = `${this.env.APP_URL}/campaigns/${input.campaignId}`;
+    const confidencePct = Math.round(input.confidence * 100);
+    const fromAddress = this.env.RESEND_FROM_EMAIL ?? 'Leylek <onboarding@resend.dev>';
+
+    const html = `<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"/><title>Leylek — ${kindLabel}</title></head>
+<body style="font-family:-apple-system,Inter,system-ui,sans-serif;background:#F4F5F7;margin:0;padding:32px 16px;color:#0B0F1A">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #D8DCE3;border-radius:12px;overflow:hidden">
+    <tr><td style="background:#0F1729;color:#fff;padding:20px 24px;font-weight:700;font-size:18px;letter-spacing:-0.01em">Leylek</td></tr>
+    <tr><td style="padding:24px">
+      <p style="margin:0 0 8px;color:#8089A0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase">Co-Pilot · ${kindLabel}</p>
+      <h1 style="margin:0 0 12px;font-size:22px;letter-spacing:-0.01em">Onay bekleyen bir öneri var</h1>
+      <p style="margin:0 0 16px;color:#4A5260;line-height:1.55">Merhaba ${escapeHtml(input.userName)},</p>
+      <p style="margin:0 0 16px;color:#4A5260;line-height:1.55">Optimizasyon ajanın kampanyan için bir karar önerdi:</p>
+      <blockquote style="margin:0 0 20px;padding:14px 18px;background:#F4F5F7;border-left:3px solid #FF6B5C;border-radius:8px;font-size:14px;line-height:1.55;color:#0B0F1A">${escapeHtml(input.reason)}</blockquote>
+      <p style="margin:0 0 24px;color:#8089A0;font-size:13px">Güven: %${confidencePct} · Kampanya: ${escapeHtml(input.campaignUrl)}</p>
+      <a href="${deepLink}" style="display:inline-block;background:#FF6B5C;color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-weight:500;font-size:15px">Öneriyi incele</a>
+      <p style="margin:24px 0 0;color:#8089A0;font-size:12px;line-height:1.5">Bu e-postayı Leylek'in Co-Pilot modunda olduğun için aldın. Otopilot moduna geçersen otomatik karar uygulanır, e-posta gelmez.</p>
+    </td></tr>
+  </table>
+</body></html>`;
+
+    const text = [
+      `Leylek — ${kindLabel}`,
+      '',
+      `Merhaba ${input.userName},`,
+      '',
+      'Optimizasyon ajanın kampanyan için bir karar önerdi:',
+      input.reason,
+      '',
+      `Güven: %${confidencePct}`,
+      `Kampanya: ${input.campaignUrl}`,
+      '',
+      `Öneriyi incele: ${deepLink}`,
+    ].join('\n');
+
+    try {
+      const resp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${this.env.RESEND_API_KEY}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: [input.to],
+          subject: `Leylek — ${kindLabel} (kampanya ${input.campaignId})`,
+          html,
+          text,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.text();
+        console.warn(
+          `[campaign-agent] Resend rejected proposal email (${resp.status}):`,
+          body.slice(0, 300),
+        );
+        return;
+      }
+      console.log('[campaign-agent] Co-Pilot proposal email queued via Resend');
+    } catch (err) {
+      console.warn('[campaign-agent] Co-Pilot email fetch failed:', err);
+    }
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ---------------------------------------------------------------------------
