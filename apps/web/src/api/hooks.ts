@@ -23,12 +23,32 @@ import type {
 
 export const queryKeys = {
   me: ['auth', 'me'] as const,
+  authConfig: ['auth', 'config'] as const,
   campaigns: ['campaigns'] as const,
   campaign: (id: number) => ['campaigns', id] as const,
   campaignLogs: (id: number) => ['campaigns', id, 'logs'] as const,
   campaignNotifications: (id: number) => ['campaigns', id, 'notifications'] as const,
   accounts: ['auth', 'accounts'] as const,
 };
+
+interface AuthConfig {
+  googleOAuthReady: boolean;
+  devLoginEnabled: boolean;
+}
+
+/**
+ * Public flags the gateway exposes so the frontend can decide whether to
+ * render the Google OAuth button. `googleOAuthReady=false` (default) hides
+ * the button — the OAuth client's redirect URI lives in the user's Google
+ * Cloud Console and we can't register the prod URL from code.
+ */
+export function useAuthConfig() {
+  return useQuery({
+    queryKey: queryKeys.authConfig,
+    queryFn: ({ signal }) => api<AuthConfig>('/api/auth/config', { signal }),
+    staleTime: 5 * 60_000,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Auth

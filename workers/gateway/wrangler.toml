@@ -14,6 +14,10 @@ GATEWAY_URL = "https://leylek-gateway.batuhanbayazitt.workers.dev"
 JWT_ISSUER = "leylek-gateway"
 LEYLEK_AD_PLATFORM = "sim"
 LEYLEK_ALLOW_DEV_LOGIN = "true"
+# OAuth client at console.cloud.google.com still has only localhost redirect
+# URIs; production callback (https://leylek-gateway.<acct>.workers.dev/api/...)
+# isn't authorised yet. Flip to "true" once DEMO_PLAYBOOK §10 step 1 is done.
+LEYLEK_GOOGLE_OAUTH_READY = "false"
 
 [[d1_databases]]
 binding = "DB"

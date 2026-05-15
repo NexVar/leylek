@@ -14,6 +14,13 @@ export interface Env {
   LEYLEK_AD_PLATFORM: 'sim' | 'real';
   /** When 'true', `/api/auth/dev-login` is enabled (E2E demo shortcut). */
   LEYLEK_ALLOW_DEV_LOGIN: string;
+  /**
+   * Gate the Google OAuth flow. Flip to 'true' only AFTER the production
+   * redirect URI is registered in Google Cloud Console (DEMO_PLAYBOOK §10),
+   * else the user hits `Error 400: redirect_uri_mismatch`. Default 'false'
+   * hides the button + makes /google/start return 503 with a helpful body.
+   */
+  LEYLEK_GOOGLE_OAUTH_READY: string;
 
   // D1
   DB: D1Database;
