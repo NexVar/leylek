@@ -36,8 +36,8 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
   set +a
 fi
 
-GATEWAY_URL="${LEYLEK_GATEWAY_URL:-https://leylek-gateway.batuhanbayazitt.workers.dev}"
-APP_URL="${LEYLEK_APP_URL:-https://leylek-web.pages.dev}"
+GATEWAY_URL="${LEYLEK_GATEWAY_URL:-https://leylek.nexvar.io}"
+APP_URL="${LEYLEK_APP_URL:-https://leylek.nexvar.io}"
 DEMO_EMAIL="${LEYLEK_DEMO_EMAIL:-batuhanbayazitt@gmail.com}"
 OUT_DIR="$REPO_ROOT/e2e-out"
 mkdir -p "$OUT_DIR"

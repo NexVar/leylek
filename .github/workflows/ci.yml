@@ -1,9 +1,10 @@
 name: CI
 
-# Guards the main branch and every PR against breaking workspace builds,
-# type errors, lint regressions, and unit-test failures. Playwright E2E
-# and Cloudflare deploy-preview jobs are deferred until those harnesses
-# land (see PRD §11).
+# Builds + tests on every push and PR, and on main also deploys the
+# frontend to Cloudflare Pages and the 5 Workers to Cloudflare. Pages
+# auto-deploy requested in user feedback — the Pages project was created
+# as a Direct Uploads project (not Git-source) so we drive the deploy
+# from CI instead of letting Cloudflare-native Git integration handle it.
 
 on:
   push:
@@ -14,6 +15,8 @@ jobs:
   build-and-test:
     name: build-and-test
     runs-on: ubuntu-latest
+    outputs:
+      can-deploy: ${{ steps.gate.outputs.can_deploy }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,5 +48,117 @@ jobs:
         run: pnpm test
         continue-on-error: true
 
-      - name: Build
+      - name: Build (frontend + workers compile)
         run: pnpm build
+
+      - name: Upload Pages dist artifact
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: pages-dist
+          path: apps/web/dist
+          retention-days: 7
+
+      - name: Gate deploy on push-to-main
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "can_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-workers:
+    name: deploy-workers
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: needs.build-and-test.outputs.can-deploy == 'true'
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Leaf workers — no Service Bindings to other workers, deploy in parallel
+      # ordering doesn't matter for these three.
+      - name: Deploy content-agent
+        working-directory: workers/content-agent
+        run: pnpm exec wrangler deploy
+
+      - name: Deploy publisher-agent
+        working-directory: workers/publisher-agent
+        run: pnpm exec wrangler deploy
+
+      - name: Deploy analytics-worker
+        working-directory: workers/analytics-worker
+        run: pnpm exec wrangler deploy
+
+      # optimizer-agent binds to publisher-agent → publisher must exist first.
+      - name: Deploy optimizer-agent
+        working-directory: workers/optimizer-agent
+        run: pnpm exec wrangler deploy
+
+      # gateway binds to all four → deploy last.
+      - name: Deploy gateway
+        working-directory: workers/gateway
+        run: pnpm exec wrangler deploy
+
+  deploy-pages:
+    name: deploy-pages
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: needs.build-and-test.outputs.can-deploy == 'true'
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Download Pages dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pages-dist
+          path: apps/web/dist
+
+      - name: Install wrangler
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Cloudflare Pages
+        working-directory: apps/web
+        run: |
+          pnpm exec wrangler pages deploy dist \
+            --project-name leylek-web \
+            --branch main \
+            --commit-dirty=true \
+            --commit-hash "$GITHUB_SHA"
