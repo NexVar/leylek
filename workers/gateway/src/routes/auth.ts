@@ -64,13 +64,13 @@ async function issueSessionCookie(c: AuthCtx, userId: number): Promise<void> {
     c.env.JWT_ISSUER,
     SESSION_TTL_SECONDS,
   );
-  // SameSite=None is required because the frontend (Pages) and gateway
-  // (Workers) live on different second-level domains; the browser would
-  // otherwise drop the cookie on cross-site fetches with credentials.
+  // Frontend (Pages, leylek.nexvar.io/) and gateway (Worker, leylek.nexvar.io/api/*)
+  // share the same origin via the Cloudflare zone route, so SameSite=Lax is
+  // both tighter and sufficient. No cross-site fetches involved.
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
-    sameSite: 'None',
+    sameSite: 'Lax',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
   });

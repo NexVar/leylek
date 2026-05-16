@@ -7,12 +7,18 @@ compatibility_flags = ["nodejs_compat"]
 enabled = true
 
 [vars]
-# Frontend origin — where to redirect after OAuth, and where Pages serves the SPA.
-APP_URL = "https://leylek-web.pages.dev"
-# Gateway origin — the worker's own URL; OAuth callback registers against this.
-GATEWAY_URL = "https://leylek-gateway.batuhanbayazitt.workers.dev"
+# Single-origin setup: frontend served by Pages, /api/* routed to this worker
+# via a Cloudflare zone route attached out-of-band. Same origin means
+# SameSite=Lax cookies work and there's no cross-site fetch ceremony.
+APP_URL = "https://leylek.nexvar.io"
+GATEWAY_URL = "https://leylek.nexvar.io"
 JWT_ISSUER = "leylek-gateway"
 LEYLEK_AD_PLATFORM = "sim"
+
+# Route binding lives in Cloudflare directly (zone nexvar.io, pattern
+# `leylek.nexvar.io/api/*` → script `leylek-gateway`). Keeping it out of
+# wrangler.toml so `wrangler deploy` doesn't need `Workers Routes:Edit`
+# on the deploy token. Manage via API or dashboard.
 
 [[d1_databases]]
 binding = "DB"
