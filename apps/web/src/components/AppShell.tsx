@@ -64,7 +64,6 @@ export function AppShell({ children }: AppShellProps) {
 
       <footer className="max-w-[1280px] mx-auto px-6 pb-6 pt-2 text-body-sm text-ink-subtle flex items-center justify-between">
         <span>© {new Date().getFullYear()} Leylek — Otonom dijital reklam ajansı.</span>
-        <span className="font-mono text-[11px]">v1.0 · sim runtime</span>
       </footer>
     </div>
   );

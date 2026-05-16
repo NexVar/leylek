@@ -110,15 +110,9 @@ export interface AuthMeResponse {
 // ---------------------------------------------------------------------------
 // Magic-link auth (PRD §9 yedek)
 // ---------------------------------------------------------------------------
-export interface MagicLinkSentResponse {
-  sent: true;
+export interface MagicLinkRequestResponse {
+  sent: boolean;
 }
-export interface MagicLinkDevResponse {
-  sent: false;
-  /** Dev-only: gateway returns the direct verify URL when Resend rejected. */
-  devLink: string;
-}
-export type MagicLinkRequestResponse = MagicLinkSentResponse | MagicLinkDevResponse;
 
 // ---------------------------------------------------------------------------
 // Notifications (Co-Pilot proposals)
