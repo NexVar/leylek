@@ -11,8 +11,9 @@ enabled = true
 [vars]
 LEYLEK_AD_PLATFORM = "sim"
 # Frontend origin — used to build the Co-Pilot notification email deep-link.
-APP_URL = "https://leylek-web.pages.dev"
-RESEND_FROM_EMAIL = "Leylek <onboarding@resend.dev>"
+APP_URL = "https://leylek.nexvar.io"
+# Updated to the verified Resend sender domain once DNS lands.
+RESEND_FROM_EMAIL = "Leylek <noreply@leylek.nexvar.io>"
 
 # Durable Object — per-campaign agent state
 [[durable_objects.bindings]]

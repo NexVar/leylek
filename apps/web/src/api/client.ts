@@ -6,7 +6,10 @@
  * code (TanStack Query hooks) can inspect status + body.
  */
 
-const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL ?? 'http://localhost:8788';
+// Same-origin in production (`leylek.nexvar.io/api/*` is the worker route);
+// relative URLs avoid hardcoding the host. `VITE_GATEWAY_URL` overrides this
+// for local dev (e.g. `http://localhost:8788`) or split-origin staging.
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL ?? '';
 
 export class ApiError extends Error {
   readonly status: number;
