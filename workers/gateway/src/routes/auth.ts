@@ -1,18 +1,13 @@
 /**
- * Authentication routes — Google OAuth + magic-link + dev-login + session.
+ * Authentication routes — Google OAuth + magic-link + session.
  *
- * - Real production: Google OAuth (PRD §9). State is stored in KV with a
- *   10-minute TTL, then verified + deleted on callback. The session is a
- *   short-TTL HS256 JWT inside an HttpOnly cookie.
- * - Magic-link (PRD §9): user submits email, gateway mints a 36+ char URL-safe
+ * - Google OAuth (PRD §9): state stored in KV with a 10-minute TTL, verified
+ *   + deleted on callback. Session is an HS256 JWT inside an HttpOnly cookie.
+ * - Magic-link (PRD §9): user submits email, gateway mints a high-entropy
  *   token, stores `magic_link:<token>` in KV for 10 min, ships the verify URL
- *   via Resend. Verify is single-use — the KV entry is deleted on first hit.
- *   Resend free-tier sandbox only delivers to the account owner's address; on
- *   a 4xx we degrade to a 200 with the verify URL inline ONLY when dev-login
- *   is enabled, otherwise return 502 so the UI can surface "provider refused".
- * - Dev shortcut: `/dev-login` (PRD AGENT_DECISIONS §6) is enabled when
- *   `LEYLEK_ALLOW_DEV_LOGIN === 'true'`. Required because the agent-browser
- *   E2E cannot complete the Google consent dance. Hidden — not surfaced in UI.
+ *   via Resend. Verify is single-use. If Resend rejects (free-tier sandbox
+ *   restricts recipients), we return 502 + `error: 'email_provider_rejected'`
+ *   — fix is to verify a domain at resend.com/domains.
  */
 
 import { schema } from '@leylek/db';
@@ -87,61 +82,8 @@ function nowIso(): string {
 
 // ---------------------------------------------------------------------------
 // Google OAuth — start
-//
-// Gated on LEYLEK_GOOGLE_OAUTH_READY. The OAuth client's authorised redirect
-// URIs are configured in the user's own Google Cloud Console — we can't
-// register the production callback URL from this code. Until the user adds
-// `${GATEWAY_URL}/api/auth/google/callback` to that list (DEMO_PLAYBOOK §10),
-// Google rejects the flow with `Error 400: redirect_uri_mismatch`. So we
-// short-circuit upstream of that error: render an HTML page explaining the
-// missing step instead of bouncing the user to a Google error screen.
 // ---------------------------------------------------------------------------
 authRoutes.get('/google/start', async (c) => {
-  if (c.env.LEYLEK_GOOGLE_OAUTH_READY !== 'true') {
-    return c.html(
-      `<!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8" />
-  <title>Google girişi henüz aktif değil — Leylek</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
-         background:#F4F5F7;color:#0B0F1A;margin:0;padding:48px 20px;line-height:1.55}
-    main{max-width:560px;margin:0 auto;background:#fff;border:1px solid #D8DCE3;
-         border-radius:12px;padding:32px;box-shadow:0 1px 2px rgba(11,15,26,.04)}
-    h1{font-size:24px;margin:0 0 12px;letter-spacing:-0.01em}
-    p{margin:0 0 12px;color:#4A5260}
-    code{font-family:"JetBrains Mono",ui-monospace,monospace;background:#E8EAEF;
-         padding:2px 6px;border-radius:6px;font-size:13px;color:#0B0F1A}
-    a.cta{display:inline-block;margin-top:16px;background:#FF6B5C;color:#fff;
-          text-decoration:none;padding:10px 16px;border-radius:12px;font-weight:500}
-    a.docs{color:#2563EB;text-decoration:underline}
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Google girişi henüz yapılandırılmadı</h1>
-    <p>Google Cloud Console'da bu projenin OAuth istemcisine production
-    redirect URI'sinin eklenmesi gerekiyor. Eklenmedikçe Google
-    <code>Error 400: redirect_uri_mismatch</code> döndürür — bu yüzden
-    sizi bu uyarıya yönlendiriyoruz, hatalı Google ekranına değil.</p>
-    <p>Eklenecek redirect URI:<br />
-    <code>${c.env.GATEWAY_URL}/api/auth/google/callback</code></p>
-    <p>Tam adımlar: <a class="docs" href="${c.env.APP_URL}">geri dön</a>
-    ve <code>docs/DEMO_PLAYBOOK.md §10</code>'u okuyun. Cloud Console
-    kurulumu tamamlanınca <code>LEYLEK_GOOGLE_OAUTH_READY=true</code>
-    flag'i ile Worker'ı yeniden deploy edin.</p>
-    <p>Şimdilik <strong>e-posta bağlantısı (magic link)</strong> tek
-    tıklamayla çalışıyor.</p>
-    <a class="cta" href="${c.env.APP_URL}/login">E-posta bağlantısına geç</a>
-  </main>
-</body>
-</html>`,
-      503,
-    );
-  }
-
   const state = crypto.randomUUID();
   await c.env.KV.put(`oauth_state:${state}`, '1', { expirationTtl: OAUTH_STATE_TTL_SECONDS });
 
@@ -332,7 +274,6 @@ authRoutes.post('/magic-link/request', async (c) => {
   );
 
   const verifyUrl = `${c.env.GATEWAY_URL}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`;
-  const devLoginEnabled = c.env.LEYLEK_ALLOW_DEV_LOGIN === 'true';
 
   let resendRes: Response;
   try {
@@ -351,22 +292,14 @@ authRoutes.post('/magic-link/request', async (c) => {
       }),
     });
   } catch (err) {
-    // Network-level failure — treat it like Resend's "we refuse" path.
     console.error('[gateway/auth] resend network error', err);
-    if (devLoginEnabled) {
-      return c.json({ sent: false, devLink: verifyUrl });
-    }
-    return c.json({ sent: false }, 502);
+    return c.json({ sent: false, error: 'email_provider_unreachable' }, 502);
   }
 
   if (!resendRes.ok) {
     const detail = await resendRes.text().catch(() => '');
     console.warn(`[gateway/auth] resend rejected magic-link send (${resendRes.status}): ${detail}`);
-    if (devLoginEnabled) {
-      // Sandbox refused — surface the link inline so the demo + E2E can proceed.
-      return c.json({ sent: false, devLink: verifyUrl });
-    }
-    return c.json({ sent: false }, 502);
+    return c.json({ sent: false, error: 'email_provider_rejected' }, 502);
   }
 
   return c.json({ sent: true });
@@ -456,57 +389,6 @@ authRoutes.get('/magic-link/verify', async (c) => {
   await issueSessionCookie(c, userId);
   return c.redirect(c.env.APP_URL);
 });
-
-// ---------------------------------------------------------------------------
-// Dev-login — gated on LEYLEK_ALLOW_DEV_LOGIN flag
-// ---------------------------------------------------------------------------
-const DevLoginBody = z.object({ email: z.string().email() });
-
-authRoutes.post('/dev-login', async (c) => {
-  if (c.env.LEYLEK_ALLOW_DEV_LOGIN !== 'true') {
-    return c.json({ error: 'not found' }, 404);
-  }
-  let parsed: z.infer<typeof DevLoginBody>;
-  try {
-    parsed = DevLoginBody.parse(await c.req.json());
-  } catch (err) {
-    return c.json(
-      { error: 'invalid_request', detail: err instanceof Error ? err.message : 'bad body' },
-      400,
-    );
-  }
-
-  const db = drizzle(c.env.DB, { schema });
-  const user = await db.query.users.findFirst({
-    where: eq(schema.users.email, parsed.email),
-  });
-  if (!user) {
-    return c.json({ error: 'user not seeded' }, 404);
-  }
-
-  await db.update(schema.users).set({ lastLoginAt: nowIso() }).where(eq(schema.users.id, user.id));
-
-  await issueSessionCookie(c, user.id);
-  return c.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
-    },
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Public config — flags the frontend uses to decide what to render.
-// Returned 200 unconditionally; safe to expose (booleans, no secrets).
-// ---------------------------------------------------------------------------
-authRoutes.get('/config', (c) =>
-  c.json({
-    googleOAuthReady: c.env.LEYLEK_GOOGLE_OAUTH_READY === 'true',
-    devLoginEnabled: c.env.LEYLEK_ALLOW_DEV_LOGIN === 'true',
-  }),
-);
 
 // ---------------------------------------------------------------------------
 // Session — current user

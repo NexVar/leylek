@@ -2,29 +2,24 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, GATEWAY_URL } from '../api/client';
-import { useAuthConfig, useMe, useRequestMagicLink } from '../api/hooks';
-import type { MagicLinkRequestResponse } from '../api/types';
+import { useMe, useRequestMagicLink } from '../api/hooks';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Logo } from '../components/Logo';
-import { Pill } from '../components/Pill';
 import { useAuthStore } from '../store/auth';
 
-type SendResult = MagicLinkRequestResponse & { email: string };
+interface SendResult {
+  email: string;
+}
 
 /**
- * Split-pane login. Brand hero on the left (navy with coral tagline)
- * + auth form on the right. Google OAuth is the primary path; magic-link
- * is the §9 yedek (backup) — if Resend rejects the send the gateway
- * returns `{sent:false, devLink}` (dev-only flag) which we expose as a
- * coral direct-open link with a warning pill.
+ * Split-pane login. Brand hero on the left (navy with coral tagline),
+ * auth form on the right. Google OAuth + magic-link via Resend.
  */
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const me = useMe();
-  const authConfig = useAuthConfig();
-  const googleOAuthReady = authConfig.data?.googleOAuthReady === true;
   const setUser = useAuthStore((s) => s.setUser);
   const requestMagicLink = useRequestMagicLink();
 
@@ -51,8 +46,8 @@ export function LoginPage() {
       return;
     }
     try {
-      const res = await requestMagicLink.mutateAsync(trimmed);
-      setSent({ ...res, email: trimmed });
+      await requestMagicLink.mutateAsync(trimmed);
+      setSent({ email: trimmed });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(
@@ -118,12 +113,6 @@ export function LoginPage() {
             ))}
           </ul>
         </div>
-
-        <div className="relative z-10 flex items-center gap-3 text-body-sm text-primary-foreground/50">
-          <span className="font-mono text-[11px] tracking-[0.08em] uppercase">
-            cf workers · d1 · durable objects
-          </span>
-        </div>
       </aside>
 
       {/* Auth form — surface, generous padding, single coral CTA. */}
@@ -134,16 +123,10 @@ export function LoginPage() {
           </div>
 
           <header className="flex flex-col gap-2">
-            <Pill tone="accent" className="self-start">
-              Demo · Hackathon 2026
-            </Pill>
             <h2 className="text-h1 text-ink">Giriş yap</h2>
             <p className="text-body-md text-ink-muted">
-              Otonom reklam ajanına hoş geldin.{' '}
-              {googleOAuthReady
-                ? 'Google hesabınla bağlan veya e-postanı bırak, '
-                : 'E-postanı bırak, '}
-              sana tek tıkla giriş bağlantısı gönderelim.
+              Otonom reklam ajanına hoş geldin. Google hesabınla bağlan veya e-postanı bırak, sana
+              tek tıkla giriş bağlantısı gönderelim.
             </p>
           </header>
 
@@ -177,23 +160,19 @@ export function LoginPage() {
             </form>
           )}
 
-          {googleOAuthReady ? (
-            <>
-              <div className="flex items-center gap-3 text-body-sm text-ink-subtle">
-                <span className="flex-1 h-px bg-border" />
-                veya
-                <span className="flex-1 h-px bg-border" />
-              </div>
+          <div className="flex items-center gap-3 text-body-sm text-ink-subtle">
+            <span className="flex-1 h-px bg-border" />
+            veya
+            <span className="flex-1 h-px bg-border" />
+          </div>
 
-              <a
-                href={`${GATEWAY_URL}/api/auth/google/start`}
-                className="w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-md border border-primary text-primary bg-transparent hover:bg-primary/[0.04] transition-colors duration-150 text-[15px] font-medium"
-              >
-                <GoogleGlyph />
-                Google ile Giriş Yap
-              </a>
-            </>
-          ) : null}
+          <a
+            href={`${GATEWAY_URL}/api/auth/google/start`}
+            className="w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-md border border-primary text-primary bg-transparent hover:bg-primary/[0.04] transition-colors duration-150 text-[15px] font-medium"
+          >
+            <GoogleGlyph />
+            Google ile Giriş Yap
+          </a>
 
           <p className="text-body-sm text-ink-subtle">
             Devam ederek{' '}
@@ -229,8 +208,6 @@ interface SentPanelProps {
 }
 
 function SentPanel({ result, onResend, resending }: SentPanelProps) {
-  const devLink = result.sent === false ? result.devLink : null;
-
   return (
     <div className="flex flex-col gap-4 bg-surface-raised border border-border rounded-md p-5 shadow-card-sm">
       <div className="flex items-center gap-3">
@@ -263,39 +240,6 @@ function SentPanel({ result, onResend, resending }: SentPanelProps) {
           </span>
         </div>
       </div>
-
-      {devLink ? (
-        <div className="flex flex-col gap-2 rounded-sm bg-warning/[0.08] border border-warning/30 px-3 py-3">
-          <Pill tone="warning" dot className="self-start">
-            Geliştirici modu — sağlayıcı reddetti
-          </Pill>
-          <p className="text-body-sm text-ink-muted">
-            Resend e-postayı göndermedi. Demo amaçlı doğrudan bağlantıyı kullanabilirsin.
-          </p>
-          <a
-            href={devLink}
-            className="inline-flex items-center gap-1.5 text-accent hover:text-accent-hover text-body-sm font-medium underline-offset-4 hover:underline"
-          >
-            Doğrudan giriş bağlantısını aç
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              role="img"
-              aria-labelledby="dev-link-external"
-            >
-              <title id="dev-link-external">Aynı sekmede aç</title>
-              <path
-                d="M5 2h5v5M10 2 4.5 7.5"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-          </a>
-        </div>
-      ) : null}
 
       <div className="flex items-center justify-between gap-3 text-body-sm">
         <span className="text-ink-subtle">Maili görmedin mi?</span>
