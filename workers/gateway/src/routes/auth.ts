@@ -205,7 +205,6 @@ authRoutes.get('/google/callback', async (c) => {
 const MagicLinkRequestBody = z.object({ email: z.string().email() });
 
 const MAGIC_LINK_TTL_SECONDS = 60 * 10;
-const RESEND_FROM = 'Leylek <onboarding@resend.dev>';
 
 function mintMagicLinkToken(): string {
   // randomUUID is 36 chars; append another randomUUID for >256 bits of entropy.
@@ -284,7 +283,7 @@ authRoutes.post('/magic-link/request', async (c) => {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        from: RESEND_FROM,
+        from: c.env.RESEND_FROM_EMAIL,
         to: [parsed.email],
         subject: 'Leylek — Giriş Bağlantın',
         html: magicLinkHtml(verifyUrl),
