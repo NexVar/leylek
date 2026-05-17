@@ -25,8 +25,7 @@ Why this product:
 ## 2. Demo user
 
 - **Email:** `batuhanbayazitt@gmail.com` (PRD §15 user, matches git author)
-- **Provider:** `google` (real Google OAuth in prod; `dev-login` endpoint
-  short-circuit for E2E only — see §6).
+- **Provider:** `google` (real Google OAuth) or `magic_link` (Resend) — see §6.
 
 ## 3. Ad-platform runtime
 
@@ -84,37 +83,47 @@ safety check refuses to run if `CLOUDFLARE_D1_DATABASE_ID` or
 `workers/*/wrangler.toml`; override with `LEYLEK_SEED_FORCE=1` for a fresh
 environment.
 
-## 6. Auth strategy for the E2E demo
+## 6. Auth strategy
 
-- **Real prod path:** Google OAuth login via the gateway
-  (`/api/auth/google/start` + `/api/auth/google/callback`). Real client ID
-  is in `.env`; the redirect URI registered in code is the gateway's prod
-  URL (`https://leylek-gateway.batuhanbayazitt.workers.dev/api/auth/google/callback`).
-  **One-time Cloud Console step required**: the user must add this exact
-  redirect URI to the OAuth client's Authorized redirect URIs AND list the
-  Google account that will sign in as a Test user on the consent screen
-  (the app is in Testing mode by default). Without these two clicks Google
-  returns `Error 400: redirect_uri_mismatch`. Step-by-step instructions
-  live in `docs/DEMO_PLAYBOOK.md §9`. The gateway code is correct; this is
-  pure config that lives in the user's own Google account.
-- **E2E shortcut:** `/api/auth/dev-login` endpoint, only enabled when
-  `LEYLEK_ALLOW_DEV_LOGIN=true`. POST `{email}` returns a signed JWT cookie
-  for an existing seeded user. The jury demo + `scripts/e2e-demo.sh` both
-  use this path because (a) agent-browser can't complete the Google
-  consent dance in CI, and (b) it sidesteps the manual Cloud Console
-  step above. Disabled in any deployment that doesn't set the flag —
-  defaults to off.
+Two paths, both production. No dev-login backdoor.
+
+- **Google OAuth:** `/api/auth/google/start` → Google consent → callback
+  at `/api/auth/google/callback`. Requires the user (once) to add
+  `https://leylek.nexvar.io/api/auth/google/callback` to the OAuth
+  client's Authorized redirect URIs in Cloud Console AND publish the
+  Consent Screen to Production (basic scopes — `openid email profile` —
+  publish instantly, no Google verification). Step-by-step instructions
+  in DEMO_PLAYBOOK §10.
+- **Magic-link via Resend:** POST `/api/auth/magic-link/request`,
+  gateway mints a 10-min URL-safe token in KV + sends a Turkish HTML
+  email through Resend's REST API. Verify endpoint deletes the KV
+  entry on first hit and issues the same JWT cookie. Requires Resend
+  domain verification (see §9).
+
+E2E test uses neither button — it POSTs the magic-link request, pulls
+the resulting `magic_link:*` entry out of KV via the Cloudflare REST
+API, then navigates the browser to the verify URL. Mirrors what a real
+user does after clicking the link in their inbox.
 
 ## 7. Hosting topology
 
-- 5 Workers via `wrangler deploy` (one per service), workers.dev subdomain:
-  - `leylek-gateway.<account>.workers.dev`
-  - `leylek-content-agent.<account>.workers.dev`
-  - `leylek-optimizer-agent.<account>.workers.dev`
-  - `leylek-publisher-agent.<account>.workers.dev`
-  - `leylek-analytics-worker.<account>.workers.dev`
-- Frontend → Cloudflare Pages project `leylek-web`. Static `vite build` output
-  uploaded via `wrangler pages deploy`. `VITE_GATEWAY_URL` baked at build time.
+Single-origin. Everything served from `https://leylek.nexvar.io`:
+
+- `/` (and any path that's not `/api/*`) → Cloudflare Pages project
+  `leylek-web` (custom domain attached via Pages API; CNAME on
+  nexvar.io zone). Auto-deploy on push to `main` via the
+  `deploy-pages` job in `.github/workflows/ci.yml`.
+- `/api/*` → `leylek-gateway` Worker via a Cloudflare zone route
+  binding (`leylek.nexvar.io/api/*`) attached out-of-band via the
+  Workers Routes API with a scoped token.
+- Other 4 Workers (`content-agent`, `optimizer-agent`,
+  `publisher-agent`, `analytics-worker`) are reachable only by the
+  gateway via Service Bindings — no public URL needed. They keep
+  their `workers.dev` URLs as a side-effect of deploy but aren't
+  part of the demo path.
+
+Cookie: `SameSite=Lax` (same-origin, tighter than the previous
+SameSite=None split-domain setup).
 
 ## 8. Cron triggers
 
@@ -122,41 +131,31 @@ PRD has `optimizer-agent` every 6h and `analytics-worker` every 15min. Both
 kept; the demo path uses the manual `POST /internal/optimize/:campaignId`
 trigger so no waiting is needed in the 60-second flow.
 
-## 9. Resend sandbox + Co-Pilot email delivery
+## 9. Resend domain verification
 
-The Resend API key in `.env` belongs to a free-tier account registered to
-`sweetsavagetr@gmail.com`. Free tier with the default `onboarding@resend.dev`
-sender will **only deliver to that exact address**; anything else returns
-`403 validation_error`.
+Two flows hit Resend: the gateway's magic-link send and the
+optimizer's Co-Pilot proposal email (PRD §7). Both go through the
+verified domain `leylek.nexvar.io` (SPF MX/TXT + DKIM TXT + DMARC TXT
+in nexvar.io zone). FROM address is
+`Leylek <noreply@leylek.nexvar.io>`.
 
-Two flows hit Resend:
+When Resend rejects (transient or domain-unverified), the gateway
+returns `502 {sent: false, error: 'email_provider_rejected'}` and
+the UI surfaces a clean retry. The optimizer's Co-Pilot email is
+fire-and-forget via `ctx.waitUntil` — proposal is already in D1, in-app
+`NotificationsPanel` is the primary channel.
 
-- **Magic-link** (`gateway`): on Resend reject, gateway degrades to
-  `200 {sent: false, devLink}` when `LEYLEK_ALLOW_DEV_LOGIN=true`,
-  surfacing the verify URL inline in the UI. Demo + E2E ride this path.
-- **Co-Pilot proposal** (`optimizer-agent`, PRD §7): after writing a
-  `notifications` row, the DO fires a `ctx.waitUntil` Resend POST with
-  a Turkish HTML + plain-text body containing the Gemini reasoning and
-  a deep-link back to `/campaigns/:id`. On a non-2xx the response body
-  is logged but never bubbles up — the proposal is already persisted
-  in D1 and the in-app `NotificationsPanel` is the primary notification
-  surface; the email is an additional channel.
-
-To make Co-Pilot emails actually land in inboxes on stage, either
-verify a domain at `resend.com/domains` (then change `RESEND_FROM_EMAIL`
-to `notifications@yourdomain.com`), or temporarily seed the demo user
-with `sweetsavagetr@gmail.com` so Resend accepts the recipient.
+One-time verification step at `resend.com/domains` (user clicks
+"Verify DNS Records" after the records propagate).
 
 ## 10. Things deliberately NOT done in this build-out
 
 - **Meta Marketing API real implementation** — Faz 2 per PRD §10.
-- **Magic-link auth** — stub remains; real Google OAuth + dev-login covers the
-  demo. Magic-link is a 2-3 hour add-on with Resend already wired.
-- **Co-Pilot full notification flow** — schema + UI placeholders are in
-  place; manual approve/reject UX comes after the Otopilot path is green.
+- **Co-Pilot push notifications** — email channel covers PRD §7;
+  web push is PRD §18 open question.
 - **Billing / multi-tenant / Shopify** — PRD vision-only.
 
-## 10. Update protocol
+## 11. Update protocol
 
 Whenever a decision is overridden by the user, append a dated entry at the
 bottom rather than rewriting history.

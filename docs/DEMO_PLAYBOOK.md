@@ -6,16 +6,16 @@
 
 | Surface | URL |
 |---|---|
-| Frontend (Pages) | https://leylek-web.pages.dev |
-| Gateway (Workers) | https://leylek-gateway.batuhanbayazitt.workers.dev |
-| content-agent | https://leylek-content-agent.batuhanbayazitt.workers.dev |
-| optimizer-agent | https://leylek-optimizer-agent.batuhanbayazitt.workers.dev |
-| publisher-agent | https://leylek-publisher-agent.batuhanbayazitt.workers.dev |
-| analytics-worker | https://leylek-analytics-worker.batuhanbayazitt.workers.dev |
+| Frontend (Pages) | https://leylek.nexvar.io |
+| Gateway (Workers, same origin) | https://leylek.nexvar.io/api/* |
+| content-agent (Service Binding, internal) | leylek-content-agent.batuhanbayazitt.workers.dev |
+| optimizer-agent (Service Binding, internal) | leylek-optimizer-agent.batuhanbayazitt.workers.dev |
+| publisher-agent (Service Binding, internal) | leylek-publisher-agent.batuhanbayazitt.workers.dev |
+| analytics-worker (Service Binding, internal) | leylek-analytics-worker.batuhanbayazitt.workers.dev |
 
 Health probe (verifies all 5 are reachable + Service Bindings green):
 ```
-curl -s https://leylek-gateway.batuhanbayazitt.workers.dev/api/health | jq
+curl -s https://leylek.nexvar.io/api/health | jq
 ```
 
 ## 2. Pre-flight (1 minute before the jury opens the laptop)
@@ -42,7 +42,7 @@ If you're cutting it tight, just rerun seed: `pnpm db:seed`.
 
 | Sec   | Action                                                  | What jury sees                                                                  |
 |-------|---------------------------------------------------------|---------------------------------------------------------------------------------|
-| 0–5   | Open https://leylek-web.pages.dev, the login page loads | Brand hero "Müşteriyi Leylek getirir." Right pane: email + Demo girişi CTA      |
+| 0–5   | Open https://leylek.nexvar.io, the login page loads | Brand hero "Müşteriyi Leylek getirir." Right pane: email + Demo girişi CTA      |
 | 5–10  | Click "Demo girişi"                                     | Lands on dashboard — "Hoş geldin, Batuhan, ajanların görevde."                  |
 | 10–15 | Click the "Demlik Pro" campaign card                    | Campaign detail: 3 ad cards + spend chart + agent_logs timeline                 |
 | 15–20 | Point at the agent_logs timeline                        | 3 `publisher CREATED_AD` rows from the content-agent's output                   |
@@ -92,8 +92,8 @@ If you're cutting it tight, just rerun seed: `pnpm db:seed`.
 |----------------------------------------------------------|--------------------------------------------------------------------------------|
 | AGGRESSIVE ad already paused (a previous demo ran)        | `pnpm db:seed` — instant reset, idempotent                                     |
 | Toast not appearing                                       | Check Gemini quota (`/api/health` shows `optimizer.status`)                    |
-| Cookie not sticking after dev-login                       | Browser blocked third-party cookies? Open in incognito + don't block 3rd-party |
-| Pages site says "X-Frame-Options not allowed"             | You hit the preview URL; use https://leylek-web.pages.dev                      |
+| Magic-link email never arrives                            | Resend free-tier sandbox; verify a domain at resend.com/domains and update `RESEND_FROM_EMAIL` |
+| Pages site says "X-Frame-Options not allowed"             | You hit the preview URL; use https://leylek.nexvar.io |
 | `pnpm db:seed` errors with "ids don't match"              | Set `LEYLEK_SEED_FORCE=1`                                                      |
 | Gateway 502 on `/optimize-now`                            | Gemini quota — wait 60 s, retry; cooldown is auto-handled by retry-once        |
 
@@ -147,66 +147,55 @@ publisher  CREATED_AD         target=<adId> (×3 from seed)
 To go back: flip the pill again — it writes another `MODE_CHANGED` row
 and future `optimize-now` calls return to direct execution.
 
-## 10. Enabling the real Google OAuth button (one-time setup)
+## 10. Google OAuth — one-time Cloud Console setup
 
-**By default the Google OAuth button is hidden in the UI** and
-`/api/auth/google/start` returns a friendly 503 explanation page — so a
-user can NOT trigger `Error 400: redirect_uri_mismatch` from this app.
-The flag controlling visibility is `LEYLEK_GOOGLE_OAUTH_READY`
-(default `"false"`) on the gateway Worker.
+The **Google ile Giriş Yap** button is always visible in the UI. For it
+to actually log a user in, the OAuth client (in your own Google Cloud
+project) needs two pieces of configuration that we can't set from this
+repo.
 
-If you don't need Google login on stage, **skip this section** — the
-demo runs entirely on magic-link.
+### Step 1 — Authorize the production redirect URI
 
-To turn Google OAuth on, do BOTH of:
-  1. Cloud Console steps below — without them Google rejects the flow.
-  2. Flip `LEYLEK_GOOGLE_OAUTH_READY=true` in `workers/gateway/wrangler.toml`
-     and redeploy the gateway. The frontend's `/api/auth/config` query
-     auto-shows the Google button on next page load.
-
-### Step 1 — Authorise the production redirect URI
-
-1. Open <https://console.cloud.google.com/apis/credentials>.
-2. Pick the **OAuth 2.0 Client ID** whose value matches your
-   `.env`'s `GOOGLE_OAUTH_CLIENT_ID` (starts with `271929788367-…`).
+1. Open <https://console.cloud.google.com/apis/credentials> (logged in
+   with the Google account that owns project `271929788367`).
+2. Click on the **OAuth 2.0 Client ID** starting with `271929788367-`.
 3. Under **Authorized redirect URIs**, add **exactly**:
    ```
-   https://leylek-gateway.batuhanbayazitt.workers.dev/api/auth/google/callback
+   https://leylek.nexvar.io/api/auth/google/callback
    ```
 4. Under **Authorized JavaScript origins**, add:
    ```
-   https://leylek-web.pages.dev
+   https://leylek.nexvar.io
    ```
-5. Click **Save**. Changes propagate within a minute or two.
+5. **Save**. Propagates within a minute or two.
 
-### Step 2 — Add yourself as a test user
+> Skip this: `Error 400: redirect_uri_mismatch`.
 
-If the OAuth consent screen is still in **Testing** state (default for new
-apps), Google blocks anyone except listed test users with
-`Access blocked: This app is being tested` or `Error 403`.
+### Step 2 — Publish OAuth Consent Screen to Production
 
-1. <https://console.cloud.google.com/apis/credentials/consent>.
-2. Scroll to **Test users** → **+ Add users**.
-3. Add the Google account you'll click "Giriş Yap" with on stage
-   (e.g. `sweetsavagetr@gmail.com`, `batuhanbayazitt@gmail.com`).
-4. Save.
+By default new OAuth apps are in **Testing** mode and only listed test
+users can sign in. To open to **everyone**:
+
+1. Open <https://console.cloud.google.com/auth/audience>.
+2. If status shows **"Testing"**, click **PUBLISH APP** → **Confirm**.
+3. Done. Because the scopes are `openid email profile` (Google's
+   "non-sensitive" tier), publication is **instant** — no Google
+   verification process required.
+
+> Skip this: `Access blocked: This app is being tested`.
 
 ### Step 3 — Verify
 
 ```bash
-curl -s https://leylek-gateway.batuhanbayazitt.workers.dev/api/auth/google/start
-# → 302 Location: https://accounts.google.com/o/oauth2/v2/auth?...
+curl -sI https://leylek.nexvar.io/api/auth/google/start
+# → HTTP/2 302 Location: https://accounts.google.com/o/oauth2/v2/auth?...
 ```
 
-Then click **Google ile Giriş Yap** from the Pages frontend — the consent
-screen now loads. After you grant scopes, the gateway upserts your row in
-`users` and lands you on `/dashboard`.
+Click **Google ile Giriş Yap** → consent → land on `/dashboard`. The
+gateway upserts the user row on first login.
 
-### Why this is a manual step
+### Why this is manual
 
-The OAuth client lives in your Google account and **only you** can edit
-its authorised origins — it can't be done from CI or `wrangler`. The
-demo's primary path (`POST /api/auth/dev-login`) was designed to bypass
-this exact friction for the 60-second jury walkthrough; the Google
-button is the production-ready alternative once the Cloud Console
-config is in place.
+OAuth client config and consent-screen publishing live in the Google
+account that owns the project — neither has a public REST API, so the
+deploy pipeline can't touch them. One-time, two clicks each.

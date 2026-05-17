@@ -13,18 +13,16 @@ Cloudflare Workers + Google Gemini 2.5 üzerinde çalışan **multi-agent** yapa
 
 | Surface | URL |
 |---|---|
-| Frontend | https://leylek-web.pages.dev |
-| Gateway / API | https://leylek-gateway.batuhanbayazitt.workers.dev |
-| `/api/health` (5-Worker probe) | [link](https://leylek-gateway.batuhanbayazitt.workers.dev/api/health) |
+| Frontend + API | https://leylek.nexvar.io |
+| `/api/health` (5-Worker probe) | [link](https://leylek.nexvar.io/api/health) |
 
-**Demo girişi:** Magic-link (Resend) — `batuhanbayazitt@gmail.com` yaz,
-"E-postaya giriş bağlantısı gönder"e tıkla. Resend sandbox tarafında
-reddederse gateway aynı sayfada "Doğrudan giriş bağlantısını aç" link'i
-gösteriyor (dev-login fallback). **Google ile Giriş Yap butonu default'ta
-gizli** (`LEYLEK_GOOGLE_OAUTH_READY=false`) — Cloud Console redirect-URI
-kaydı yapılmadan tıklayan kullanıcı `redirect_uri_mismatch` hatası alır,
-bu yüzden butonu UI'dan tamamen kaldırıyoruz. Kurulum +
-flag flip için: [DEMO_PLAYBOOK §10](./docs/DEMO_PLAYBOOK.md).
+Single-origin — frontend ve gateway aynı host'tan serve ediliyor
+(`/api/*` Worker route, geri kalan Pages). Cookie SameSite=Lax.
+
+**Giriş:** İki seçenek — e-postaya giriş bağlantısı (magic-link via
+Resend) veya Google ile Giriş Yap (OAuth). Production redirect URI'sini
+Cloud Console'a ekledikten sonra Google butonu çalışır;
+[DEMO_PLAYBOOK §10](./docs/DEMO_PLAYBOOK.md).
 
 **Otopilot + Co-Pilot:** Otopilot 60 saniyelik aha anı; Co-Pilot için
 kampanya başlığındaki **Otopilot / Co-Pilot** pill'ine tıklayıp tekrar
@@ -61,7 +59,7 @@ React (Pages) → gateway Worker → [ content-agent | optimizer-agent | publish
                                           D1 + KV
 ```
 
-- `gateway` — API entry, Google OAuth + dev-login + JWT, AES helpers, frontend façade
+- `gateway` — API entry, Google OAuth + magic-link (Resend) + JWT, AES helpers, frontend façade
 - `content-agent` — **Gemini 2.5 Flash** (PRD §16 fallback path) — ürün URL'sini analiz, persona çıkarımı, 3 reklam varyantı (Agresif / Hikaye / Teknik), `responseSchema` ile structured output
 - `optimizer-agent` — **Gemini 2.5 Flash** (cron her 6 saat) — spend/CPA/CTR oku, pause/keep/realloc kararı + Türkçe gerekçe
 - `publisher-agent` — Google Ads gerçek API kodu repo'da (`real-google-ads.ts`); demo `sim` runtime'da `SimulatedAdsClient`; Meta `MetaAdsClient` Faz 2 stub
