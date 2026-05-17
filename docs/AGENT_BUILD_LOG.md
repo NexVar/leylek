@@ -7,6 +7,71 @@
 
 ---
 
+## Wave 8 — Single-origin `leylek.nexvar.io` + CI auto-deploy (2026-05-19)
+
+**Trigger:** the project was approaching final-product state and was
+still leaking "demo" / "hackathon" / `workers.dev` tells. User also
+wanted Pages to auto-deploy after every commit. Closing both at once
+also moved the whole app behind a single brand-owned domain, which
+unlocks the cleanest cookie + OAuth + email setup.
+
+**Shipped:**
+- **Single-origin topology.** Pages custom domain `leylek.nexvar.io`
+  attached to the `leylek-web` project (via Pages API). Gateway worker
+  bound to `leylek.nexvar.io/api/*` via a Cloudflare zone route
+  (attached via the Workers Routes API with a scoped token). Frontend
+  and gateway now share an origin — `VITE_GATEWAY_URL` defaults to
+  empty string (relative URLs), cookie back to `SameSite=Lax`.
+- **DNS for Resend (`leylek.nexvar.io`).** Added to `nexvar.io` zone
+  via Cloudflare DNS API:
+  - `CNAME leylek → leylek-web.pages.dev` (proxied)
+  - `TXT resend._domainkey.leylek` (DKIM)
+  - `MX send.leylek 10 feedback-smtp.us-east-1.amazonses.com` (SPF)
+  - `TXT send.leylek "v=spf1 include:amazonses.com ~all"`
+  - `TXT _dmarc "v=DMARC1; p=none;"`
+  User clicks "Verify DNS Records" at resend.com/domains as the final
+  step. `RESEND_FROM_EMAIL` flipped to `noreply@leylek.nexvar.io`.
+- **GitHub Actions auto-deploy.** `.github/workflows/ci.yml` gains
+  `deploy-pages` + `deploy-workers` jobs that run on push to main and
+  depend on the existing `build-and-test` gate. Workers deploy in
+  dependency order (leaf workers → optimizer → gateway). Pages deploy
+  reuses the build artifact. Secrets `CLOUDFLARE_API_TOKEN` +
+  `CLOUDFLARE_ACCOUNT_ID` set on the GitHub repo via `gh secret set`.
+  Cloudflare-native Git source isn't an option because the Pages
+  project was created as Direct Uploads and the API refuses to switch.
+- **Removed last "demo" tells.**
+  - Login Pill "Demo · Hackathon 2026" gone.
+  - "CF WORKERS · D1 · DURABLE OBJECTS" tech-badge gone from brand hero.
+  - "v1.0 · sim runtime" footer suffix gone.
+  - `LEYLEK_GOOGLE_OAUTH_READY` and `LEYLEK_ALLOW_DEV_LOGIN` flags
+    + `/api/auth/dev-login` endpoint + `/api/auth/config` endpoint
+    + the 503 OAuth-not-wired HTML page + the magic-link `devLink`
+    fallback — all deleted. Frontend `useAuthConfig` and `useDevLogin`
+    hooks removed. Google OAuth button is unconditionally visible.
+- **E2E reworked.** Drives the actual magic-link UI form, then pulls
+  the resulting `magic_link:*` token out of KV via the Cloudflare REST
+  API (the script already has `CLOUDFLARE_API_TOKEN` in scope) and
+  navigates the browser to the verify URL. No dev-login dependency.
+
+**Verified:**
+- `curl https://leylek.nexvar.io/api/health` → 200, all 5 upstreams ok.
+- `curl https://leylek.nexvar.io/` → 200 (Pages cert active).
+- `./scripts/e2e-demo.sh` → green end-to-end on the new domain.
+- CI pipeline runs `build-and-test → deploy-pages + deploy-workers`
+  on push to main. First run failed on `wrangler not found` in the
+  `apps/web` workspace; added `wrangler` as a devDep there. Second
+  run green.
+
+**Still user-action:**
+- Verify `leylek.nexvar.io` at `resend.com/domains` (DNS already
+  propagated). Until clicked, Resend returns
+  `403 domain not verified` on any send.
+- Cloud Console: add `https://leylek.nexvar.io/api/auth/google/callback`
+  to the OAuth client's Authorized redirect URIs + publish the
+  Consent Screen to Production. Walkthrough in DEMO_PLAYBOOK §10.
+
+---
+
 ## Wave 7 — Co-Pilot email notifications (PRD §7) (2026-05-19)
 
 **Trigger:** PRD §7 Co-Pilot akışı specifies "Push notification + e-mail
