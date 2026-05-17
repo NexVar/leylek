@@ -14,6 +14,10 @@ APP_URL = "https://leylek.nexvar.io"
 GATEWAY_URL = "https://leylek.nexvar.io"
 JWT_ISSUER = "leylek-gateway"
 LEYLEK_AD_PLATFORM = "sim"
+# Verified Resend sender — required for delivery to arbitrary recipients.
+# `onboarding@resend.dev` is the free-tier sandbox sender (only delivers to
+# the Resend account owner's address).
+RESEND_FROM_EMAIL = "Leylek <noreply@leylek.nexvar.io>"
 
 # Route binding lives in Cloudflare directly (zone nexvar.io, pattern
 # `leylek.nexvar.io/api/*` → script `leylek-gateway`). Keeping it out of

@@ -25,6 +25,9 @@ export interface Env {
   PUBLISHER_AGENT: Fetcher;
   ANALYTICS_WORKER: Fetcher;
 
+  /** Resend FROM address — needs a verified domain to reach arbitrary recipients. */
+  RESEND_FROM_EMAIL: string;
+
   // Secrets — set via `wrangler secret put`
   GOOGLE_OAUTH_CLIENT_ID: string;
   GOOGLE_OAUTH_CLIENT_SECRET: string;
