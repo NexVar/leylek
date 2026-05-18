@@ -177,7 +177,10 @@ export class RealGoogleAdsClient implements AdPlatformClient {
     );
     const resource = adResp.results?.[0]?.resourceName;
     if (!resource) throw new AdPlatformError('AD_CREATE_FAILED', 'no result from mutate', {});
-    return { externalId: resource.split('~').pop() ?? resource };
+    // Google's resource leaf is `<adGroupId>~<adId>` — keep the full leaf so
+    // `pauseAd`/`resumeAd` can rebuild a valid `resource_name`. `fetchMetrics`
+    // splits the leaf to get the numeric ad id GAQL expects.
+    return { externalId: resource.split('/').pop() ?? resource };
   }
 
   async pauseAd(externalAdId: string, _reason: string): Promise<void> {
@@ -237,10 +240,13 @@ export class RealGoogleAdsClient implements AdPlatformClient {
     const access = await this.accessToken();
     const startDate = new Date(Date.now() - windowHours * 3600_000).toISOString().slice(0, 10);
     const today = new Date().toISOString().slice(0, 10);
+    // GAQL `ad_group_ad.ad.id` is the numeric ad id alone — strip the
+    // `<adGroupId>~` prefix carried in our externalAdId convention.
+    const numericAdId = externalAdId.split('~').pop() ?? externalAdId;
     const query = `
       SELECT metrics.impressions, metrics.clicks, metrics.conversions, metrics.cost_micros
       FROM ad_group_ad
-      WHERE ad_group_ad.ad.id = ${externalAdId}
+      WHERE ad_group_ad.ad.id = ${numericAdId}
         AND segments.date BETWEEN '${startDate}' AND '${today}'
     `;
     const resp = await this.adsFetch<{

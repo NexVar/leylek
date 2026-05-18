@@ -41,9 +41,9 @@ import type { Env } from './env';
  */
 const DEMO_CREDENTIALS = {
   refreshToken: '',
-  customerId: 'sim_customer_demlik',
+  customerId: '1234567890',
   accessToken: '',
-  adAccountId: 'sim_account_demlik',
+  adAccountId: '9876543210',
 } as const;
 
 const WINDOW_HOURS = 48;

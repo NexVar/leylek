@@ -38,13 +38,15 @@ import type { Env } from './env';
  * pulls these per-request from D1 via the gateway's AES-256-GCM helper,
  * keyed by the user owning the action (PRD §10, Faz 2). The mock Workers
  * don't validate any of these, so the demo flow runs end-to-end with
- * fixed placeholders.
+ * fixed placeholders. Customer / ad-account ids are numeric strings so
+ * Google's GAQL `WHERE campaign.id = <n>` regex matches and Meta's
+ * `act_<n>` URL segment is well-formed.
  */
 const DEMO_CREDENTIALS = {
   refreshToken: '',
-  customerId: 'sim_customer_demlik',
+  customerId: '1234567890',
   accessToken: '',
-  adAccountId: 'sim_account_demlik',
+  adAccountId: '9876543210',
 } as const;
 
 const app = new Hono<{ Bindings: Env }>();
