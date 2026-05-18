@@ -29,13 +29,25 @@ Why this product:
 
 ## 3. Ad-platform runtime
 
-- **Demo:** `LEYLEK_AD_PLATFORM=sim` (default in `wrangler.toml [vars]` for
-  every Worker that touches ad-platform actions).
-- **Production-ready:** `RealGoogleAdsClient` ships in
-  `workers/publisher-agent/src/clients/real-google-ads.ts`. Flips by setting
-  `LEYLEK_AD_PLATFORM=real` and providing
-  `GOOGLE_ADS_DEVELOPER_TOKEN` + `GOOGLE_ADS_LOGIN_CUSTOMER_ID`.
-- **Meta:** stub adapter throwing `NOT_IMPLEMENTED` per PRD §10 (Faz 2).
+> **Updated in Wave 9 (mockdata.md):** the `LEYLEK_AD_PLATFORM` flag is
+> gone; the factory now always builds the real client and a per-Worker
+> `*_BASE_URL` env var decides whether the request lands on a mock
+> Worker (sandbox) or on the actual Google/Meta endpoint (prod).
+
+- **Sandbox:** `GOOGLE_ADS_BASE_URL` + `GOOGLE_ADS_OAUTH_URL` point at
+  `https://leylek-google-ads-mock.batuhanbayazitt.workers.dev`;
+  `META_ADS_BASE_URL` points at `https://leylek-meta-ads-mock.batuhanbayazitt.workers.dev`.
+  Both mocks live in `workers/google-ads-mock/` and `workers/meta-ads-mock/`
+  and respond in the real Google Ads / Meta Marketing API JSON shapes.
+- **Production:** flip the three `*_BASE_URL` env vars to the real hosts
+  (`googleads.googleapis.com`, `oauth2.googleapis.com`, `graph.facebook.com`)
+  + ensure per-user OAuth credentials are decrypted from
+  `connected_accounts` (currently a `DEMO_CREDENTIALS` placeholder in
+  publisher-agent + analytics-worker; the AES helper extraction is the
+  remaining work).
+- **`RealGoogleAdsClient`** + **`RealMetaAdsClient`** are the only two
+  implementations the factory dispatches to. `SimulatedAdsClient` is
+  preserved in the repo for one-line rollback but unreferenced.
 
 ## 4. Design tokens (set by goal directive)
 

@@ -7,6 +7,87 @@
 
 ---
 
+## Wave 9 — Mock platform Workers + single client path (2026-05-19)
+
+**Trigger:** Sim adapter + real adapter were two separate code paths.
+Demo flow drove the sim path only, so the real-mode wiring (`RealGoogleAdsClient`,
+the `MetaAdsClient` stub) never got exercised end-to-end. `docs/mockdata.md`
+proposed swapping the runtime split for a base-URL switch backed by two
+new Worker stubs of the real APIs. This wave executes the full plan.
+
+**Shipped:**
+- **`workers/google-ads-mock/`** — new Hono Worker emulating the Google
+  Ads REST API v17 subset `RealGoogleAdsClient` uses:
+  `POST /v17/customers/:cid/{campaignBudgets,campaigns,adGroups,adGroupAds}:mutate`
+  (create + status updates), `POST /v17/customers/:cid/googleAds:search`
+  (minimal GAQL parser — budget lookup + metrics fetch), `POST /token`
+  (OAuth refresh stub). KV state under `gads:*` prefix. 50-200 ms latency
+  jitter. Metrics returned as strings, mirroring Google's wire shape.
+- **`workers/meta-ads-mock/`** — new Hono Worker emulating Meta Marketing
+  API v21.0: `POST /v21.0/act_:aaId/{campaigns,adsets,ads}`,
+  `GET /v21.0/:campaignId/adsets`, `GET /v21.0/:adId/insights`,
+  `POST /v21.0/:id` (status / budget update, dispatched via
+  `meta:adType:<id>` reverse index), `GET /v21.0/oauth/access_token`.
+  KV state under `meta:*` prefix.
+- **`RealMetaAdsClient`** (`workers/publisher-agent/src/clients/real-meta-ads.ts`)
+  — production implementation against Meta Marketing API. Two-step
+  `createCampaign` (Meta has no campaign-level budget so the client
+  mints a default AdSet to carry it), `updateBudget` walks the campaign
+  → adsets edge to find the target AdSet, `fetchMetrics` maps
+  `windowHours` to Meta `date_preset` and converts decimal TRY spend
+  to integer kuruş.
+- **`RealGoogleAdsClient.baseUrl` / `oauthUrl`** are now injectable
+  config fields (defaults preserved). The OAuth fetch appends `/token`
+  inside the client so the env var stays a base URL — matching the
+  real Google path (`oauth2.googleapis.com/token`).
+- **Resource leaf fix in `RealGoogleAdsClient`.** `createAd` now returns
+  the full `<adGroupId>~<adId>` leaf so `pauseAd` / `resumeAd` can rebuild
+  a valid `resource_name` (previous code dropped the `adGroupId` and would
+  fail against real Google). `fetchMetrics` splits the leaf back into
+  the numeric ad id GAQL expects.
+- **Factory rewrite.** `makeAdPlatformClient` now takes
+  `{provider, credentials, env}`. No more `runtime: 'sim' | 'real'`,
+  no more `realConfig` wrapper. Single path: builds `RealGoogleAdsClient`
+  or `RealMetaAdsClient`, points it at whatever base URLs the calling
+  Worker's env declares.
+- **`LEYLEK_AD_PLATFORM` deleted** from gateway, optimizer-agent,
+  publisher-agent, analytics-worker (both `wrangler.toml` vars and
+  `Env` typedefs). `x-leylek-ad-platform` header forwarding removed
+  from `gateway/routes/campaigns.ts` and `optimizer/campaign-agent.ts`.
+  Old `MetaAdsClient` NOT_IMPLEMENTED stub deleted (replaced by the
+  new real client). `SimulatedAdsClient` file kept for rollback but
+  unreferenced.
+- **Seed switched to gads:* layout.** `scripts/seed-demo-data.ts` writes
+  the Google-shaped KV records the mock Worker expects: `gads:customer`,
+  `gads:budget`, `gads:campaign`, `gads:adGroup`, `gads:ad`, `gads:metrics`.
+  Demo IDs are pinned numeric (`customerId=1234567890`, `campaignId=2001`,
+  per-ad `<adGroupId>~<adId>`) so Google's GAQL `WHERE campaign.id = <n>`
+  regex matches. `DEMO_CREDENTIALS` in publisher-agent and analytics-worker
+  use the same ids so seed and runtime agree.
+- **CI deploy chain.** `.github/workflows/ci.yml` + `scripts/deploy.sh`
+  deploy `google-ads-mock` + `meta-ads-mock` first in the sequence.
+  Mocks have no Service Bindings and no Secrets; `workers/*` glob in
+  `pnpm-workspace.yaml` picks them up automatically.
+
+**Verified:**
+- `pnpm -r typecheck` green across all 11 workspaces (now incl. mocks).
+- `pnpm lint` (biome 2.4) clean.
+- Two parallel agents built the mock workers; one agent built the Meta
+  client. Integration done by the orchestrator (factory rewrite +
+  call-site updates + LEYLEK_AD_PLATFORM removal in a single commit).
+- Old `sim:*` KV keys left as dead-weight ghosts (cleanup is optional
+  per mockdata.md Faz 7).
+
+**Still user-action:**
+- Run `pnpm db:seed` against prod KV once CI lands the mock workers —
+  this flips the demo state from `sim:*` to `gads:*` keys.
+- Verify the deployed mock workers respond:
+  `curl https://leylek-google-ads-mock.batuhanbayazitt.workers.dev/health`
+  `curl https://leylek-meta-ads-mock.batuhanbayazitt.workers.dev/health`
+- E2E (`./scripts/e2e-demo.sh`) after CI completes.
+
+---
+
 ## Wave 8 — Single-origin `leylek.nexvar.io` + CI auto-deploy (2026-05-19)
 
 **Trigger:** the project was approaching final-product state and was

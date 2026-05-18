@@ -428,7 +428,9 @@ Mock plan tamamen production-ready. Üretime geçmek:
 
 Aşağıdaki üç seçenekten biriyle ilerlenecek (kullanıcı seçecek):
 
-- [ ] **Tam plan (~8 saat)** — Google + Meta mock + her ikisi de production-ready.
-- [ ] **Küçük başla (~3 saat)** — sadece Faz 1 (Google Ads mock) + Faz 5 (RealGoogleAdsClient
-      refactor) + Faz 6 partial (gads:* seed) + Faz 7 partial. Meta sonraki sprint'e.
-- [ ] **Şimdilik kalsın** — mevcut SimulatedAdsClient yeterli, jüriye anlatım aynı.
+- [x] **Tam plan (~8 saat)** — Google + Meta mock + her ikisi de production-ready.
+      **Tamamlandı 2026-05-19** — Wave 9 (`docs/AGENT_BUILD_LOG.md`).
+      Bu doküman artık tarihi referans olarak duruyor; canlı durum
+      `docs/AGENT_DECISIONS.md §3` ve `CLAUDE.md` "Mimari" bölümünde.
+- [ ] ~~Küçük başla (~3 saat)~~ — gerek kalmadı.
+- [ ] ~~Şimdilik kalsın~~ — gerek kalmadı.

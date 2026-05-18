@@ -17,9 +17,13 @@ Claude Code, …) when working with code in this repository.
 e-ticaret satıcıları için Meta + Google Ads kampanyalarını otonom üreten,
 yayınlayan, optimize eden bir SaaS. Tamamen Cloudflare üzerinde serverless.
 
-PRD'nin **MVP'si canlı** (`v1.0.0` tag): https://leylek.nexvar.io. Bir
-sonraki büyük iş `docs/mockdata.md` planında — Google + Meta için
-production-shape mock Worker'lar yazıp tek code path'e geçmek.
+PRD'nin **MVP'si canlı** (`v1.0.0` tag): https://leylek.nexvar.io.
+`docs/mockdata.md` planı Wave 9'da tamamlandı — `SimulatedAdsClient`
+elendi, `RealGoogleAdsClient` + `RealMetaAdsClient` artık tek code path,
+`leylek-google-ads-mock` + `leylek-meta-ads-mock` Worker'larına karşı
+sandbox'ta, gerçek Google/Meta endpoint'lerine karşı prod'da çalışıyor.
+Sıradaki iş gerçek prod credential entegrasyonu (`connected_accounts.enc_*`
+AES decrypt + per-user OAuth) — bkz. PRD §17.
 
 ## Önce şunları oku (5 dakika)
 
@@ -27,11 +31,11 @@ production-shape mock Worker'lar yazıp tek code path'e geçmek.
 |---|---|
 | `README.md` | Proje girişi + canlı URL'ler + 1 dakikalık ne yaptığını anlama |
 | `PRD.md` | Ürün gereksinim belgesi — §4 (MVP), §5 (multi-agent), §7 (Otopilot/Co-Pilot akışı), §10 (sim/real ad platform port + adapter), §15 (jüri narrative) |
-| `docs/AGENT_BUILD_LOG.md` | Şu ana kadar 8 wave atılmış — her wave'in ne yaptığı, ne doğrulandığı |
-| `docs/AGENT_DECISIONS.md` | Otonom agent'ın PRD dışında yaptığı tüm "sensible default" seçimleri (brand, seed kurvalar, auth strategy, sim/real swap, vb.) |
+| `docs/AGENT_BUILD_LOG.md` | Şu ana kadar 9 wave atılmış — her wave'in ne yaptığı, ne doğrulandığı |
+| `docs/AGENT_DECISIONS.md` | Otonom agent'ın PRD dışında yaptığı tüm "sensible default" seçimleri (brand, seed kurvalar, auth strategy, ad-platform runtime, vb.) — §3 mockdata sonrası güncellendi |
 | `docs/DEMO_PLAYBOOK.md` | 60 saniyelik jüri walkthrough + Co-Pilot beat + Google OAuth Cloud Console kurulumu |
 | `docs/DESIGN.md` | Google `design.md` formatında visual identity — Modern Fintech + warm coral, navy primary, Inter, 12 px default radius. Tailwind v4 `@theme` token'ları buradan üretiliyor |
-| `docs/mockdata.md` | **Sıradaki büyük iş** — Google + Meta mock Worker'ları (8 fazlı plan, ~8 saat) |
+| `docs/mockdata.md` | Mock Worker mimari planı — **Wave 9'da tamamlandı**, tarihi referans. Canlı durum AGENT_DECISIONS §3'te. |
 
 ## Mimari (kuş bakışı)
 
@@ -49,32 +53,37 @@ production-shape mock Worker'lar yazıp tek code path'e geçmek.
             ┌────────────────┬────────────┬──┘  │           │
             ▼                ▼            ▼     ▼           ▼
     content-agent    optimizer-agent  publisher-agent  analytics-worker
-    (Gemini 2.5      (Gemini 2.5       (port+adapter:    (metric ingestion
-     Flash, /        Flash, /          SimulatedAds      cron + refresh)
-     analyze)        + Campaign        Client today;
-                     Durable Object)   RealGoogleAds in
-                                       repo per PRD §10)
-                              │
-                              ▼
-                        D1 SQL + KV
-                        (single namespace, prefixed keys)
+    (Gemini 2.5      (Gemini 2.5       (port+adapter:    (cron + refresh,
+     Flash, /        Flash, /          RealGoogleAds +   always asks
+     analyze)        + Campaign        RealMetaAds,      platform via
+                     Durable Object)   factory routes    factory)
+                                       by provider)
+                              │   │
+                              │   └──────HTTPS─────────┐
+                              ▼                        ▼
+                        D1 SQL + KV          leylek-google-ads-mock
+                        (gads:*, meta:*,     leylek-meta-ads-mock
+                         magic_link:*,       (sandbox; prod flip =
+                         oauth_state:*)      *_BASE_URL env swap)
 ```
 
 **Single-origin**: frontend ve gateway aynı host'tan serve ediliyor
 (`leylek.nexvar.io/api/*` zone route → `leylek-gateway` worker'a;
 diğer her şey Pages'a). Cookie `SameSite=Lax`.
 
-**5 Worker** + 1 Campaign Durable Object (`CampaignAgent`, per-campaign
-atomic state). Service Bindings ile haberleşir — content/optimizer/
-publisher/analytics dışarıdan public URL'ye ihtiyaç duymaz (workers.dev
-URL'leri deploy artifact'ı, kullanılmıyor).
+**5 ana Worker** (gateway + 4 agent) + **2 mock platform Worker**
+(google-ads-mock + meta-ads-mock) + 1 Campaign Durable Object
+(`CampaignAgent`, per-campaign atomic state). Ana 5 Worker Service
+Bindings ile haberleşir; mock'lara erişim HTTPS üzerinden
+`GOOGLE_ADS_BASE_URL` / `META_ADS_BASE_URL` env'leriyle.
 
-**Sim/real ad platform swap**: PRD §10 — port (`AdPlatformClient`) +
-adapter pattern. Şu an `SimulatedAdsClient` (KV-state, bespoke) demo'yu
-sürüyor; `RealGoogleAdsClient` production REST kodu repoda çalışır
-halde, `LEYLEK_AD_PLATFORM=real` ile flip ediliyor. `MetaAdsClient`
-şu an `NOT_IMPLEMENTED` stub — `mockdata.md` planı bu mimariyi
-sadeleştiriyor (sim/real ayrımı yerine baseUrl env switch).
+**Ad platform mimari (Wave 9 sonrası)**: PRD §10 port + adapter, tek
+production code path. `makeAdPlatformClient({provider, credentials, env})`
+fabrikası provider'a göre `RealGoogleAdsClient` veya `RealMetaAdsClient`
+üretir; iki client da `baseUrl` + `oauthUrl` env'leri injectable. Sandbox'ta
+mock Worker'lara, prod'da `googleads.googleapis.com` / `graph.facebook.com`'a
+istek gider. `SimulatedAdsClient` repoda rollback için duruyor ama
+factory'den çağrılmıyor. `LEYLEK_AD_PLATFORM` flag'i tamamen kaldırıldı.
 
 ## Repo layout
 
@@ -93,9 +102,12 @@ leylek/
 │   ├── optimizer-agent/        # Campaign DO + Gemini decision + Co-Pilot
 │   │                           #   email via Resend
 │   ├── publisher-agent/        # AdPlatformClient port wiring,
-│   │   └── src/clients/        # SimulatedAdsClient + RealGoogleAdsClient +
-│   │                           #   MetaAdsClient (Faz 2 stub) + factory
-│   └── analytics-worker/       # /internal/refresh + 15-min cron metric aggregation
+│   │   └── src/clients/        # RealGoogleAdsClient + RealMetaAdsClient +
+│   │                           #   factory (+ SimulatedAdsClient unused, kept
+│   │                           #   for one-line rollback)
+│   ├── analytics-worker/       # /internal/refresh + 15-min cron metric aggregation
+│   ├── google-ads-mock/        # Hono Worker emulating Google Ads REST v17 subset
+│   └── meta-ads-mock/          # Hono Worker emulating Meta Marketing API v21.0
 ├── packages/
 │   ├── shared-types/           # Zod schemas + TS types (ad-platform port lives here)
 │   ├── db/                     # Drizzle schema + migrations
@@ -108,7 +120,7 @@ leylek/
 ├── docs/
 │   ├── PRD.md, ARCHITECTURE.md, DESIGN.md
 │   ├── AGENT_DECISIONS.md, AGENT_BUILD_LOG.md, DEMO_PLAYBOOK.md
-│   └── mockdata.md             # Next-up plan
+│   └── mockdata.md             # Tarihi: Wave 9'da uygulanan plan
 └── .github/workflows/ci.yml    # build → typecheck → lint → deploy-pages + deploy-workers on push to main
 ```
 
@@ -138,8 +150,8 @@ leylek/
 `.github/workflows/ci.yml`:
 - Her push + PR: typecheck + lint + vitest + build
 - Push to **main** ek olarak: `deploy-pages` (apps/web/dist → Pages) +
-  `deploy-workers` (5 worker dependency order). `wrangler deploy` zincir
-  içinde. ~1.5 dk.
+  `deploy-workers` (7 worker dependency order: mocks → leaf agents →
+  optimizer → gateway). `wrangler deploy` zincir içinde.
 - Secrets: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo'da set
   (gh secret set ile yazıldı).
 
@@ -194,16 +206,23 @@ Cloudflare entegrasyonu değil.
 - **Secrets via `wrangler secret put`** — kodda asla yok. `.env` lokal-only,
   gitignored. `scripts/setup-cloudflare-secrets.sh` toplu push için.
 
-### Port + Adapter (PRD §10)
-Şu an: `AdPlatformClient` interface'i (`packages/shared-types/src/ad-platform.ts`)
-ile 3 implementation (`SimulatedAdsClient`, `RealGoogleAdsClient`,
-`MetaAdsClient` stub). Factory `makeAdPlatformClient` `LEYLEK_AD_PLATFORM`
-env'ine bakıyor.
+### Port + Adapter (PRD §10, Wave 9 sonrası)
+`AdPlatformClient` interface'i (`packages/shared-types/src/ad-platform.ts`)
+ile 2 production implementation: `RealGoogleAdsClient` +
+`RealMetaAdsClient`. Factory `makeAdPlatformClient({provider, credentials, env})`
+provider'a göre seçer; her iki client da `baseUrl` + (varsa) `oauthUrl`
+env'leriyle yönlendirilir. `LEYLEK_AD_PLATFORM` flag'i artık yok.
 
-**Sonraki refactor** (`docs/mockdata.md`): sim/real ayrımı kaldırılacak,
-tek `RealGoogleAdsClient` + `RealMetaAdsClient`, `GOOGLE_ADS_BASE_URL` ve
-`META_ADS_BASE_URL` env'leri ile mock Worker'lara veya gerçek API'ye
-yönlendirilecek.
+Sandbox: env'ler `leylek-google-ads-mock.batuhanbayazitt.workers.dev` /
+`leylek-meta-ads-mock.batuhanbayazitt.workers.dev`'i gösterir; mock
+Worker'lar `gads:*` ve `meta:*` KV prefix'leriyle deterministic state
+sürer. Prod: env'leri `https://googleads.googleapis.com` /
+`https://oauth2.googleapis.com` / `https://graph.facebook.com`'a çevir +
+`DEMO_CREDENTIALS` placeholder'ı `connected_accounts.enc_*` AES decrypt
+ile değiştir (PRD §17 — sıradaki büyük iş).
+
+`SimulatedAdsClient` repoda duruyor (`workers/publisher-agent/src/clients/simulated-ads.ts`)
+ama factory'den çağrılmıyor; bir saatlik geri dönüş için var.
 
 ## Operational notes
 
@@ -211,15 +230,20 @@ yönlendirilecek.
 - **Account**: `Batuhanbayazitt@gmail.com's Account` (id `36a8550c...`)
 - **D1**: `leylek-prod` (id `c20b810d-f5a9-464d-9fa9-8a33101948f7`, 7 tables)
 - **KV**: `leylek-kv` (id `e9c37be505844e1dbdb0b83b8311ed17`).
-  Prefix layout: `sim:campaign:*`, `sim:ad:*`, `sim:metrics:*`,
-  `magic_link:*`, `oauth_state:*`. mockdata planında `gads:*`, `meta:*` eklenecek.
+  Prefix layout (Wave 9 sonrası): `gads:customer:*`, `gads:budget:*`,
+  `gads:campaign:*`, `gads:adGroup:*`, `gads:ad:*`, `gads:metrics:*`
+  (Google Ads mock state); `meta:campaign:*`, `meta:adset:*`, `meta:ad:*`,
+  `meta:adType:*`, `meta:adAccount:*`, `meta:insights:*` (Meta mock state);
+  `magic_link:*`, `oauth_state:*` (auth). Eski `sim:*` anahtarları
+  artık yazılmıyor ama eski deploy'lardan kalan ghost'lar zararsız.
 - **Zone**: `nexvar.io` (id `c55144c33d61e99add875b4ee66d2a15`). DNS records
   for `leylek.nexvar.io` (Pages CNAME) + `resend._domainkey.leylek` +
   `send.leylek` (SPF MX/TXT) + `_dmarc`.
 - **Pages project**: `leylek-web`, custom domain `leylek.nexvar.io`.
 - **Workers**: leylek-gateway, leylek-content-agent, leylek-optimizer-agent,
-  leylek-publisher-agent, leylek-analytics-worker. Route binding
-  `leylek.nexvar.io/api/*` → gateway.
+  leylek-publisher-agent, leylek-analytics-worker, leylek-google-ads-mock,
+  leylek-meta-ads-mock. Route binding `leylek.nexvar.io/api/*` → gateway.
+  Mock workers public workers.dev üzerinden serve eder (sandbox erişim).
 
 ### Auth + auth user-actions
 - **Google OAuth**: client ID `271929788367-58e1c3qvrk45231oosciucgamkibfifh`,
@@ -230,13 +254,19 @@ yönlendirilecek.
 - **Cookie**: HttpOnly, Secure, SameSite=Lax, single origin.
 
 ### Things deferred (PRD §17 Faz 2)
-- **Meta Marketing API real integration** — `MetaAdsClient` stub.
-  Path: mockdata.md Faz 3 implementation OR external Meta App Review
-  (weeks) + write real client.
+- **`connected_accounts` AES decryption** — `DEMO_CREDENTIALS` placeholder
+  in `publisher-agent/src/index.ts` + `analytics-worker/src/index.ts` is
+  the only thing standing between sandbox and prod. Plan: extract the
+  gateway's AES helper into a shared `@leylek/crypto` package, then have
+  both workers decrypt `connected_accounts.enc_refresh_token` /
+  `enc_access_token` per request. The factory shape already supports it
+  (`makeAdPlatformClient({credentials})`); just wire it in.
+- **Meta App Review** — needed for production access to real users' ad
+  accounts. `RealMetaAdsClient` is code-complete; uses the mock today.
+  Submission is weeks of back-and-forth with Meta; not blocking demo.
 - **Google Ads developer token Standard** — for arbitrary (non-test)
-  Google Ads customer access. Test access tier zaten anında (PRD §10
-  pessimism düzeltildi). Demo mock'ta veya Test Manager Account'la
-  gerçek API'ye gidebilir.
+  Google Ads customer access. Test access tier zaten anında. Mock'a
+  veya Test Manager Account'a karşı her şey çalışır.
 - **Web push** (PRD §18 open question). Resend email Co-Pilot channel.
 - **Billing / multi-tenant / Shopify** — PRD §13–§14 vision only.
 
@@ -262,15 +292,26 @@ yönlendirilecek.
 
 ## Sıradaki büyük iş
 
-`docs/mockdata.md` planı. 3 seçenek var, ekip arkadaşı kararı:
-- Tam plan (~8h) — Google + Meta mock + her ikisi production-ready
-- Küçük başla (~3h) — sadece Google Ads mock + Faz 5 refactor
-- Şimdilik kalsın — mevcut SimulatedAdsClient yeterli
+**`connected_accounts` AES decryption helper extraction.** Şu an her iki
+worker'da hardcoded `DEMO_CREDENTIALS` placeholder var (numeric customer
+ids `1234567890` / `9876543210`). Production'a geçmek için:
+1. Gateway'in `crypto.ts`'indeki AES-256-GCM helper'ı yeni bir
+   `packages/crypto` paketine taşı.
+2. `publisher-agent` + `analytics-worker`'da çağrı sitelerinde, action
+   yapacağımız ad'in `campaigns.userId` → `users.id` → `connected_accounts`
+   üzerinden `enc_refresh_token` / `enc_access_token`'ı oku, AES decrypt et,
+   factory'ye geçir.
+3. `wrangler.toml`'larda `GOOGLE_ADS_BASE_URL` / `GOOGLE_ADS_OAUTH_URL` /
+   `META_ADS_BASE_URL` vars'larını `https://googleads.googleapis.com` /
+   `https://oauth2.googleapis.com` / `https://graph.facebook.com`'a çevir.
+
+İkincil work: Wave 9'da eklenmiş `sim:*` KV anahtarı temizleme (opsiyonel),
+gateway'in `connected_accounts` write-side'ı (kullanıcı Google'da connect
+ettiğinde refresh_token'ı AES-encrypt edip D1'e yazan akış — şu an seed
+script bunu manuel yapıyor).
 
 ## Ne zaman sorulacak
 
-- **mockdata.md** planında bir faz tıkanırsa, plan iyimser kalmış demektir;
-  `docs/AGENT_BUILD_LOG.md`'ye not düş ve PRD'yi revise et.
 - **External approval bekleyen item'lar** (Meta App Review, Google Ads
   Standard) için kullanıcıdan onay almadan başvuru yapma.
 - **`.env`'a yeni secret ekleme** — bunlar her ortam için ayrı üretilmeli,
@@ -281,9 +322,9 @@ yönlendirilecek.
 ## Çıktı
 
 - Her wave bittiğinde `docs/AGENT_BUILD_LOG.md`'ye entry düş (mevcut
-  format: Wave 0–8 örnek).
+  format: Wave 0–9 örnek).
 - Atomic commit'ler push'la, conventional commits.
 - Demo akışı bozulursa `./scripts/e2e-demo.sh` ile doğrula. Bozulan tek
   satır olabilir ama prod'a sızması diğer her şeyi kırar.
 - `v1.0.0` sonrası feature work `v1.1.0` patch tag'iyle işaretlenebilir
-  (semver — major mock refactor major bump değil çünkü dış davranış aynı).
+  (semver — Wave 9 mock refactor major bump değil çünkü dış davranış aynı).
