@@ -4,12 +4,13 @@
 #
 # Deploy the Leylek stack to Cloudflare in dependency order:
 #
-#   1. content-agent, publisher-agent, analytics-worker  (no Service Bindings)
-#   2. optimizer-agent                                   (binds publisher)
-#   3. gateway                                           (binds all four)
-#   4. D1 schema migrations (remote)
-#   5. Workers Secrets (via setup-cloudflare-secrets.sh)
-#   6. apps/web → Cloudflare Pages
+#   1. google-ads-mock, meta-ads-mock                    (no Service Bindings; HTTPS callees)
+#   2. content-agent, publisher-agent, analytics-worker  (no Service Bindings)
+#   3. optimizer-agent                                   (binds publisher)
+#   4. gateway                                           (binds all four agents)
+#   5. D1 schema migrations (remote)
+#   6. Workers Secrets (via setup-cloudflare-secrets.sh)
+#   7. apps/web → Cloudflare Pages
 #
 # Idempotent — each `wrangler deploy` overwrites the previous version. Re-run
 # after a code change to push everything; pass `--workers-only` to skip the
@@ -77,17 +78,24 @@ deploy_worker() {
 }
 
 # ---------------------------------------------------------------------------
-# 1. Leaf workers — no Service Bindings to other workers.
+# 1. Mock platform workers — no Service Bindings; reached over HTTPS by
+#    publisher-agent + analytics-worker via GOOGLE_ADS_BASE_URL /
+#    META_ADS_BASE_URL env vars. Deploy first so first-call latency on a
+#    fresh stack doesn't hit a cold 404.
 # ---------------------------------------------------------------------------
 if $DO_WORKERS; then
+  deploy_worker workers/google-ads-mock
+  deploy_worker workers/meta-ads-mock
+
+  # 2. Other leaf workers — no Service Bindings between this trio.
   deploy_worker workers/content-agent
   deploy_worker workers/publisher-agent
   deploy_worker workers/analytics-worker
 
-  # 2. Optimizer binds publisher (needs publisher to exist first).
+  # 3. Optimizer binds publisher (needs publisher to exist first).
   deploy_worker workers/optimizer-agent
 
-  # 3. Gateway binds everything else.
+  # 4. Gateway binds everything else.
   deploy_worker workers/gateway
 fi
 

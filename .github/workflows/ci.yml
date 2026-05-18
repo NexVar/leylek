@@ -96,8 +96,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Leaf workers — no Service Bindings to other workers, deploy in parallel
-      # ordering doesn't matter for these three.
+      # Mock platform workers — no Service Bindings, no internal callers.
+      # publisher-agent + analytics-worker fetch them over HTTPS using
+      # GOOGLE_ADS_BASE_URL / META_ADS_BASE_URL env vars, so the mocks
+      # only need to exist at first call — deploying them first guarantees
+      # that's the case after a brand-new clone.
+      - name: Deploy google-ads-mock
+        working-directory: workers/google-ads-mock
+        run: pnpm exec wrangler deploy
+
+      - name: Deploy meta-ads-mock
+        working-directory: workers/meta-ads-mock
+        run: pnpm exec wrangler deploy
+
+      # Leaf workers — no Service Bindings to other workers; ordering
+      # within this group doesn't matter for bindings, only for the
+      # mock-first ergonomics above.
       - name: Deploy content-agent
         working-directory: workers/content-agent
         run: pnpm exec wrangler deploy
