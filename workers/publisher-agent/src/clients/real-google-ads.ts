@@ -42,10 +42,22 @@ export interface RealGoogleAdsConfig {
   clientId: string;
   clientSecret: string;
   apiVersion?: string;
+  /**
+   * Ads REST root. Defaults to the production Google URL; mockdata.md Faz 1
+   * exists so we can point this at `leylek-google-ads-mock.workers.dev`
+   * in sandbox without touching the client. Trailing slash optional.
+   */
+  baseUrl?: string;
+  /**
+   * OAuth base. Defaults to the production Google OAuth host. Client
+   * appends `/token` itself so the env var stays a base URL — same
+   * shape as `baseUrl` above.
+   */
+  oauthUrl?: string;
 }
 
-const GOOGLE_ADS_ROOT = 'https://googleads.googleapis.com';
-const OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_ADS_ROOT_DEFAULT = 'https://googleads.googleapis.com';
+const OAUTH_BASE_DEFAULT = 'https://oauth2.googleapis.com';
 
 export class RealGoogleAdsClient implements AdPlatformClient {
   readonly runtime = 'real' as const;
@@ -258,7 +270,8 @@ export class RealGoogleAdsClient implements AdPlatformClient {
   // -------------------------------------------------------------------------
   private async adsFetch<T>(path: string, accessToken: string, body: unknown): Promise<T> {
     const version = this.cfg.apiVersion ?? 'v17';
-    const resp = await fetch(`${GOOGLE_ADS_ROOT}/${version}${path}`, {
+    const root = (this.cfg.baseUrl ?? GOOGLE_ADS_ROOT_DEFAULT).replace(/\/$/, '');
+    const resp = await fetch(`${root}/${version}${path}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -290,7 +303,8 @@ export class RealGoogleAdsClient implements AdPlatformClient {
       refresh_token: this.cfg.refreshToken,
       grant_type: 'refresh_token',
     });
-    const resp = await fetch(OAUTH_TOKEN_URL, {
+    const oauthBase = (this.cfg.oauthUrl ?? OAUTH_BASE_DEFAULT).replace(/\/$/, '');
+    const resp = await fetch(`${oauthBase}/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body,
