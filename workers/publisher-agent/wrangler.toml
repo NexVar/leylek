@@ -8,7 +8,17 @@ enabled = true
 
 [vars]
 META_API_VERSION = "v21.0"
+# Deprecated — kept for the single Faz-0 commit so existing call sites keep
+# typechecking. Faz-4 drops `LEYLEK_AD_PLATFORM` entirely (mockdata.md).
 LEYLEK_AD_PLATFORM = "sim"
+
+# Ad-platform base URLs. Sandbox/demo defaults to the leylek-*-mock Workers;
+# prod flip: set these as Secrets pointing at the real API endpoints
+# (`https://googleads.googleapis.com`, `https://oauth2.googleapis.com`,
+# `https://graph.facebook.com`).
+GOOGLE_ADS_BASE_URL = "https://leylek-google-ads-mock.batuhanbayazitt.workers.dev"
+GOOGLE_ADS_OAUTH_URL = "https://leylek-google-ads-mock.batuhanbayazitt.workers.dev"
+META_ADS_BASE_URL = "https://leylek-meta-ads-mock.batuhanbayazitt.workers.dev"
 
 [[d1_databases]]
 binding = "DB"
