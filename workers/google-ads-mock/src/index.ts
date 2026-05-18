@@ -34,14 +34,28 @@ app.get('/health', (c) => c.json({ status: 'ok', service: 'google-ads-mock' }));
 // our base URL is the trailing `/token`.
 app.post('/token', oauthToken);
 
-// Google Ads REST surface — `/v17/customers/:cid/<resource>:mutate` and
-// `/v17/customers/:cid/googleAds:search`. Hono pattern matching keeps
-// the `:mutate` suffix literal so it doesn't collide with `:cid`.
-app.post('/v17/customers/:cid/campaignBudgets\\:mutate', campaignBudgetsMutate);
-app.post('/v17/customers/:cid/campaigns\\:mutate', campaignsMutate);
-app.post('/v17/customers/:cid/adGroups\\:mutate', adGroupsMutate);
-app.post('/v17/customers/:cid/adGroupAds\\:mutate', adGroupAdsMutate);
-app.post('/v17/customers/:cid/googleAds\\:search', googleAdsSearch);
+// Google Ads REST surface — `/v17/customers/:cid/<resource>:<verb>`.
+// Hono v4's path matcher reads a leading `:` in any segment as a
+// param marker (`\\:` escape doesn't work), so we capture the
+// resource segment whole and dispatch on it. Resource segment shape
+// is `<resource>:<verb>` (e.g. `campaigns:mutate`, `googleAds:search`).
+app.post('/v17/customers/:cid/:resource', async (c) => {
+  const resource = c.req.param('resource');
+  switch (resource) {
+    case 'campaignBudgets:mutate':
+      return campaignBudgetsMutate(c);
+    case 'campaigns:mutate':
+      return campaignsMutate(c);
+    case 'adGroups:mutate':
+      return adGroupsMutate(c);
+    case 'adGroupAds:mutate':
+      return adGroupAdsMutate(c);
+    case 'googleAds:search':
+      return googleAdsSearch(c);
+    default:
+      return c.json({ error: 'not_found', resource }, 404);
+  }
+});
 
 // Fallback — Google's real API returns 404 for unknown paths.
 app.all('*', (c) => c.json({ error: 'not_found', path: c.req.path }, 404));

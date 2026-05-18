@@ -774,7 +774,7 @@ async function main(): Promise<void> {
 
   const cf = new Cloudflare(accountId, apiToken, d1DbId, kvNamespaceId);
 
-  info(`${c.bold}Leylek demo seeder${c.reset} — sim mode`);
+  info(`${c.bold}Leylek demo seeder${c.reset} — gads:* / meta:* KV layout`);
   info(
     `  account=${accountId.slice(0, 8)}…  d1=${d1DbId.slice(0, 8)}…  kv=${kvNamespaceId.slice(0, 8)}…`,
   );
