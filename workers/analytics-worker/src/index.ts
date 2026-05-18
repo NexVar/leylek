@@ -1,13 +1,16 @@
 /**
  * analytics-worker — periodic metric ingestion and ads-table aggregate refresh.
  *
- * PRD §5 / §7 Step 7 / §10.
+ * PRD §5 / §7 Step 7 / §10. Single code path post-mockdata.md — the cron
+ * always asks the platform (real Google/Meta in prod, the `leylek-*-mock`
+ * Workers in sandbox) for the freshest window, then aggregates. No
+ * sim/real branch.
  *
  * Cron every 15 minutes (prod):
  *   1. Iterate active campaigns in D1.
  *   2. For each ad in the campaign:
- *      - In real mode: fetch_metrics from the platform and insert a new
- *        `metric_snapshots` row.
+ *      - Fetch a fresh 48 h window via `AdPlatformClient.fetchMetrics`
+ *        and insert a new `metric_snapshots` row.
  *      - Aggregate `metric_snapshots` over the last 48 h.
  *      - Recompute `ads.spend_kurus`, `ads.cpa_kurus`, `ads.ctr_basis_points`.
  *   3. Update `ads` rows with the cached aggregates so the dashboard reads
@@ -16,15 +19,9 @@
  * Manual trigger: `POST /internal/refresh/:campaignId` — same logic, scoped
  * to one campaign. The demo flow ("Şimdi Optimize Et") relies on this.
  *
- * Sim vs real split (PRD §10):
- *   - LEYLEK_AD_PLATFORM=sim  → snapshots are pre-seeded by
- *     `scripts/seed-demo-data.ts`. We only recompute aggregates from D1.
- *   - LEYLEK_AD_PLATFORM=real → before aggregating, ask the platform for
- *     the freshest 48-h window and insert a new snapshot row.
- *
- * TODO(shared-client): publisher-agent owns `SimulatedAdsClient` /
- * `makeAdPlatformClient` today; we import via relative path. Move to
- * `packages/ads-clients` when a second consumer (this worker) settles.
+ * TODO(shared-client): publisher-agent owns `makeAdPlatformClient` today;
+ * we import via relative path. Move to `packages/ads-clients` when a third
+ * consumer settles.
  */
 
 import { schema } from '@leylek/db';
@@ -38,6 +35,17 @@ import { makeAdPlatformClient } from '../../publisher-agent/src/clients/make-cli
 
 import type { Env } from './env';
 
+/**
+ * Same demo-credential placeholder as publisher-agent uses. Real
+ * production loads these from `connected_accounts` per-campaign.
+ */
+const DEMO_CREDENTIALS = {
+  refreshToken: '',
+  customerId: 'sim_customer_demlik',
+  accessToken: '',
+  adAccountId: 'sim_account_demlik',
+} as const;
+
 const WINDOW_HOURS = 48;
 const WINDOW_MS = WINDOW_HOURS * 60 * 60 * 1000;
 
@@ -47,7 +55,8 @@ app.get('/api/health', (c) =>
   c.json({
     status: 'ok',
     service: 'analytics-worker',
-    adPlatform: c.env.LEYLEK_AD_PLATFORM,
+    googleAdsBaseUrl: c.env.GOOGLE_ADS_BASE_URL,
+    metaAdsBaseUrl: c.env.META_ADS_BASE_URL,
   }),
 );
 
@@ -78,7 +87,11 @@ export default {
 // ---------------------------------------------------------------------------
 async function runCron(env: Env): Promise<void> {
   const startedAt = new Date().toISOString();
-  console.log('[analytics-worker] cron start', { startedAt, adPlatform: env.LEYLEK_AD_PLATFORM });
+  console.log('[analytics-worker] cron start', {
+    startedAt,
+    googleAdsBaseUrl: env.GOOGLE_ADS_BASE_URL,
+    metaAdsBaseUrl: env.META_ADS_BASE_URL,
+  });
 
   const db = drizzle(env.DB, { schema });
   const activeCampaigns = await db
@@ -136,11 +149,10 @@ async function refreshCampaign(
     .from(schema.ads)
     .where(eq(schema.ads.campaignId, campaignId));
 
-  // Real-mode only: pull a fresh 48-h window from the platform and persist
-  // a new snapshot before we aggregate. Sim mode trusts the seed.
-  if (env.LEYLEK_AD_PLATFORM === 'real') {
-    await ingestFreshSnapshots(env, campaignAds);
-  }
+  // Pull a fresh 48-h window from the platform and persist a new snapshot
+  // before we aggregate. Sandbox: hits the mock Workers (which return
+  // seed-pinned curves); prod: hits real Google/Meta.
+  await ingestFreshSnapshots(env, campaignAds);
 
   const refreshed: AdRefreshResult[] = [];
   const cutoffIso = new Date(Date.now() - WINDOW_MS).toISOString();
@@ -195,7 +207,7 @@ async function refreshCampaign(
 }
 
 // ---------------------------------------------------------------------------
-// Real-mode snapshot ingestion
+// Snapshot ingestion (always-on)
 // ---------------------------------------------------------------------------
 async function ingestFreshSnapshots(
   env: Env,
@@ -203,31 +215,26 @@ async function ingestFreshSnapshots(
 ): Promise<void> {
   const db = drizzle(env.DB, { schema });
 
-  // For now we only wire Google Ads in real mode (Meta is Faz 2 stub).
-  // makeAdPlatformClient throws if realConfig is missing, so we let that
-  // surface as a campaign-level failure rather than swallowing it.
-  const client = makeAdPlatformClient({
-    runtime: 'real',
-    provider: 'google_ads',
-    kv: env.KV,
-    realConfig: {
-      developerToken: env.GOOGLE_ADS_DEVELOPER_TOKEN,
-      loginCustomerId: env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
-      clientId: env.GOOGLE_OAUTH_CLIENT_ID,
-      clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
-      credentials: {
-        // The publisher-agent decrypts per-user refresh tokens before each
-        // action; analytics-worker would do the same — TODO once the
-        // connected_accounts decryption helper lands in a shared package.
-        refreshToken: '',
-        customerId: '',
-      },
-    },
-  });
+  const factoryEnv = {
+    GOOGLE_ADS_BASE_URL: env.GOOGLE_ADS_BASE_URL,
+    GOOGLE_ADS_OAUTH_URL: env.GOOGLE_ADS_OAUTH_URL,
+    META_ADS_BASE_URL: env.META_ADS_BASE_URL,
+    GOOGLE_ADS_DEVELOPER_TOKEN: env.GOOGLE_ADS_DEVELOPER_TOKEN,
+    GOOGLE_ADS_LOGIN_CUSTOMER_ID: env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+    GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID,
+    GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET,
+    META_API_VERSION: env.META_API_VERSION,
+  };
 
   for (const ad of ads) {
     const externalId = ad.googleAdId ?? ad.metaAdId;
     if (!externalId) continue;
+    const provider = ad.metaAdId && !ad.googleAdId ? 'meta' : 'google_ads';
+    const client = makeAdPlatformClient({
+      provider,
+      credentials: DEMO_CREDENTIALS,
+      env: factoryEnv,
+    });
     const window = await client.fetchMetrics(externalId, WINDOW_HOURS);
     await db.insert(schema.metricSnapshots).values({
       adId: ad.id,

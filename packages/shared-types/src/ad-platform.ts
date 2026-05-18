@@ -1,11 +1,15 @@
 /**
  * AdPlatformClient — port for outbound calls to ad platforms.
  *
- * Both `SimulatedAdsClient` (demo) and `RealGoogleAdsClient` (production)
- * implement this interface; `LEYLEK_AD_PLATFORM` env flag selects which
- * one the publisher-agent and analytics-worker instantiate at runtime.
+ * `RealGoogleAdsClient` and `RealMetaAdsClient` implement this interface.
+ * `SimulatedAdsClient` is preserved in the repo for one-line rollback
+ * but no longer dispatched to by the factory (mockdata.md).
  *
- * PRD §10. Meta uses the same interface via a Faz-2 stub.
+ * The factory builds one of the real clients per provider; `*_BASE_URL`
+ * env vars decide whether traffic lands on a `leylek-*-mock` Worker
+ * (sandbox) or on the actual Google/Meta endpoint (prod).
+ *
+ * PRD §10.
  */
 
 import { z } from 'zod';

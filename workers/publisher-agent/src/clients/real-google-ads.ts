@@ -2,8 +2,9 @@
  * RealGoogleAdsClient — production `AdPlatformClient` against the
  * Google Ads REST API. **Ships in repo per PRD §10.**
  *
- * Activation: set `LEYLEK_AD_PLATFORM=real` on the publisher-agent +
- * analytics-worker, plus provide:
+ * Activation: set `GOOGLE_ADS_BASE_URL` + `GOOGLE_ADS_OAUTH_URL` on the
+ * publisher-agent + analytics-worker (mock Worker in sandbox, real Google
+ * endpoints in prod), plus provide:
  *   - `GOOGLE_ADS_DEVELOPER_TOKEN`
  *   - `GOOGLE_ADS_LOGIN_CUSTOMER_ID` (10-digit MCC ID, no dashes)
  *   - `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`

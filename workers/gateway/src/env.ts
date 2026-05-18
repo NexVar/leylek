@@ -10,8 +10,6 @@ export interface Env {
   /** Gateway origin — used for OAuth callback `redirect_uri`. */
   GATEWAY_URL: string;
   JWT_ISSUER: string;
-  /** Selects which AdPlatformClient downstream Workers build; gateway just forwards. */
-  LEYLEK_AD_PLATFORM: 'sim' | 'real';
 
   // D1
   DB: D1Database;

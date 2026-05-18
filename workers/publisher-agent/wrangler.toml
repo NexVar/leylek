@@ -8,9 +8,6 @@ enabled = true
 
 [vars]
 META_API_VERSION = "v21.0"
-# Deprecated — kept for the single Faz-0 commit so existing call sites keep
-# typechecking. Faz-4 drops `LEYLEK_AD_PLATFORM` entirely (mockdata.md).
-LEYLEK_AD_PLATFORM = "sim"
 
 # Ad-platform base URLs. Sandbox/demo defaults to the leylek-*-mock Workers;
 # prod flip: set these as Secrets pointing at the real API endpoints

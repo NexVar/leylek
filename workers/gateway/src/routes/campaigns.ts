@@ -474,7 +474,6 @@ campaignRoutes.post('/:id/notifications/:notificationId/approve', async (c) => {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-leylek-ad-platform': c.env.LEYLEK_AD_PLATFORM,
     },
     body: JSON.stringify(dispatchBody),
   });

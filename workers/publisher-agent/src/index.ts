@@ -4,21 +4,22 @@
  * Owns ALL outbound calls to ad platforms. Other workers never touch
  * Meta or Google directly — they ask publisher-agent to act.
  *
- * Wiring:
- *   - `LEYLEK_AD_PLATFORM=sim` (demo default) → `SimulatedAdsClient` backed by KV.
- *   - `LEYLEK_AD_PLATFORM=real` → `RealGoogleAdsClient` once token decryption is
- *     wired through the gateway's AES helper (see TODO(real) below).
+ * Wiring (post-mockdata.md): single code path. The factory builds a
+ * `RealGoogleAdsClient` or `RealMetaAdsClient` per ad-account provider;
+ * `GOOGLE_ADS_BASE_URL` + `META_ADS_BASE_URL` env vars decide whether
+ * the request lands on a `leylek-*-mock` Worker (sandbox) or on the real
+ * Google/Meta endpoint (prod). No sim/real branch in this Worker.
  *
  * Persistence:
- *   - We co-opt `campaigns.do_id` to store the external (platform) campaign id.
- *     The PRD §5/§8 originally reserved that column for the Durable Object name,
- *     but in sim/demo mode the publisher needs a stable per-campaign external
+ *   - `campaigns.do_id` stores the external (platform) campaign id.
+ *     The PRD §5/§8 originally reserved that column for the Durable
+ *     Object name, but the publisher needs a stable per-campaign external
  *     id to talk to the platform, and `do_id` is the only TEXT column on
- *     `campaigns` we can reuse without a schema migration. The optimizer-agent
- *     and analytics-worker both read this same field.
- *   - We co-opt `ads.google_ad_id` for every sim ad id today (demo runtime is
- *     sim-Google). When `RealMetaAdsClient` ships (PRD Faz 2), Meta ads will
- *     write `ads.meta_ad_id` instead via the same provider switch.
+ *     `campaigns` we can reuse without a schema migration. The
+ *     optimizer-agent and analytics-worker both read this same field.
+ *   - `ads.google_ad_id` for Google ads, `ads.meta_ad_id` for Meta ads.
+ *     The provider switch on `pause`/`resume`/`reallocate` reads whichever
+ *     column is populated.
  */
 
 import { schema } from '@leylek/db';
@@ -31,6 +32,21 @@ import { z } from 'zod';
 import { type AdPlatformProvider, makeAdPlatformClient } from './clients';
 import type { Env } from './env';
 
+/**
+ * Placeholder demo credentials — matches the values the seed script writes
+ * into `connected_accounts` for the Demlik Pro demo user. Real production
+ * pulls these per-request from D1 via the gateway's AES-256-GCM helper,
+ * keyed by the user owning the action (PRD §10, Faz 2). The mock Workers
+ * don't validate any of these, so the demo flow runs end-to-end with
+ * fixed placeholders.
+ */
+const DEMO_CREDENTIALS = {
+  refreshToken: '',
+  customerId: 'sim_customer_demlik',
+  accessToken: '',
+  adAccountId: 'sim_account_demlik',
+} as const;
+
 const app = new Hono<{ Bindings: Env }>();
 
 // ---------------------------------------------------------------------------
@@ -40,36 +56,35 @@ app.get('/api/health', (c) =>
   c.json({
     status: 'ok',
     service: 'publisher-agent',
-    adPlatform: c.env.LEYLEK_AD_PLATFORM,
+    googleAdsBaseUrl: c.env.GOOGLE_ADS_BASE_URL,
+    metaAdsBaseUrl: c.env.META_ADS_BASE_URL,
     metaApiVersion: c.env.META_API_VERSION,
   }),
 );
 
 // ---------------------------------------------------------------------------
-// Factory helper — selects sim/real AdPlatformClient
+// Factory helper — builds a per-provider AdPlatformClient.
 //
-// Sim mode is the demo default (DECISIONS §3). Real mode requires decrypting
-// the user's OAuth refresh token from `connected_accounts.enc_refresh_token`
-// using AES-256-GCM with `env.AES_KEY_BASE`; the gateway already owns the
-// canonical AES helper, so we deliberately defer to that and surface a clear
-// error here until it's wired through.
+// `DEMO_CREDENTIALS` keeps the demo flow self-contained; real production
+// fetches per-user credentials from `connected_accounts` (decrypted via
+// the gateway's AES-256-GCM helper) and passes them through this function
+// instead. The factory does not care which.
 // ---------------------------------------------------------------------------
 function getClient(env: Env, provider: AdPlatformProvider): AdPlatformClient {
-  const runtime = env.LEYLEK_AD_PLATFORM ?? 'sim';
-  if (runtime === 'sim') {
-    return makeAdPlatformClient({ runtime: 'sim', provider, kv: env.KV });
-  }
-  // TODO(real): reuse the gateway's AES-256-GCM helper to decrypt
-  // `connected_accounts.enc_refresh_token` for the acting user, then pass the
-  // plaintext refresh token + customer id through `realConfig.credentials`.
-  // Until that helper is shared (a `@leylek/crypto` package is the planned
-  // home), refuse the call with a typed error so callers don't silently fall
-  // through to a half-wired real path.
-  throw new AdPlatformError(
-    'REAL_MODE_NOT_WIRED',
-    'real-mode token decryption ships with the gateway AES helper — flip back to sim or land the helper first',
-    {},
-  );
+  return makeAdPlatformClient({
+    provider,
+    credentials: DEMO_CREDENTIALS,
+    env: {
+      GOOGLE_ADS_BASE_URL: env.GOOGLE_ADS_BASE_URL,
+      GOOGLE_ADS_OAUTH_URL: env.GOOGLE_ADS_OAUTH_URL,
+      META_ADS_BASE_URL: env.META_ADS_BASE_URL,
+      GOOGLE_ADS_DEVELOPER_TOKEN: env.GOOGLE_ADS_DEVELOPER_TOKEN,
+      GOOGLE_ADS_LOGIN_CUSTOMER_ID: env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+      GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID,
+      GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET,
+      META_API_VERSION: env.META_API_VERSION,
+    },
+  });
 }
 
 function dbFrom(env: Env) {
@@ -109,7 +124,8 @@ app.post('/internal/publish', async (c) => {
   const body = PublishRequest.parse(await c.req.json());
   const db = dbFrom(c.env);
 
-  // Demo always speaks Google Ads (sim). Faz 2 routes per `connected_accounts.provider`.
+  // Demo always speaks Google Ads. Faz 2 will route per
+  // `connected_accounts.provider` once Meta credentials land.
   const client = getClient(c.env, 'google_ads');
 
   // 1. Make sure gateway-inserted campaign + ads rows are there.
