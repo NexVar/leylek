@@ -13,6 +13,7 @@ import type { Env } from './env';
 import { authRoutes } from './routes/auth';
 import { campaignRoutes } from './routes/campaigns';
 import { adAccountRoutes } from './routes/connect';
+import { notificationRoutes } from './routes/notifications';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -64,6 +65,7 @@ app.get('/api/health', async (c) => {
 app.route('/api/auth', authRoutes);
 app.route('/api/auth', adAccountRoutes);
 app.route('/api/campaigns', campaignRoutes);
+app.route('/api/notifications', notificationRoutes);
 
 app.notFound((c) => c.json({ error: 'not found' }, 404));
 
