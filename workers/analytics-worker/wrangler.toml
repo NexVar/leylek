@@ -8,9 +8,6 @@ enabled = true
 
 [vars]
 META_API_VERSION = "v21.0"
-# Deprecated — Faz-4 drops `LEYLEK_AD_PLATFORM` (mockdata.md). Kept here
-# so the single Faz-0 commit doesn't break typecheck.
-LEYLEK_AD_PLATFORM = "sim"
 
 # Ad-platform base URLs — see workers/publisher-agent/wrangler.toml for the
 # same vars and the prod-flip recipe.

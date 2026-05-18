@@ -447,7 +447,6 @@ export class CampaignAgent extends DurableObject<Env> {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-leylek-ad-platform': this.env.LEYLEK_AD_PLATFORM,
         },
         body: JSON.stringify(body),
       });

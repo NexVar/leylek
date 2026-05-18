@@ -13,7 +13,6 @@ enabled = true
 APP_URL = "https://leylek.nexvar.io"
 GATEWAY_URL = "https://leylek.nexvar.io"
 JWT_ISSUER = "leylek-gateway"
-LEYLEK_AD_PLATFORM = "sim"
 # Verified Resend sender — required for delivery to arbitrary recipients.
 # `onboarding@resend.dev` is the free-tier sandbox sender (only delivers to
 # the Resend account owner's address).

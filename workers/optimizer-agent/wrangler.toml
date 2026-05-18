@@ -6,10 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
-# Demo runtime defaults to simulator client in publisher-agent; flip to "real"
-# in production (PRD §10) once Google Ads dev_token Standard access lands.
 [vars]
-LEYLEK_AD_PLATFORM = "sim"
 # Frontend origin — used to build the Co-Pilot notification email deep-link.
 APP_URL = "https://leylek.nexvar.io"
 # Updated to the verified Resend sender domain once DNS lands.

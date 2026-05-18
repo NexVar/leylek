@@ -1,61 +1,79 @@
 /**
- * Factory: pick the AdPlatformClient at runtime.
+ * Factory: build the `AdPlatformClient` for a given provider.
  *
- * `LEYLEK_AD_PLATFORM=sim` (default for demo) returns SimulatedAdsClient
- * backed by KV. `=real` returns RealGoogleAdsClient configured from
- * Workers Secrets and a per-user refresh token decrypted from
- * `connected_accounts`.
+ * Single code path post-mockdata.md — every demo and every production
+ * call goes through `RealGoogleAdsClient` or `RealMetaAdsClient`. Whether
+ * the HTTP traffic lands on a `leylek-*-mock` Worker (sandbox) or on
+ * `googleads.googleapis.com` / `graph.facebook.com` (prod) is determined
+ * by the `GOOGLE_ADS_BASE_URL`, `GOOGLE_ADS_OAUTH_URL`, `META_ADS_BASE_URL`
+ * env vars on the calling Worker. No sim/real branch, no `LEYLEK_AD_PLATFORM`.
  *
- * The Meta stub is wired through `provider` so that a future
- * `LEYLEK_AD_PLATFORM=real` deploy can route per ad-account provider
- * without code changes.
+ * `SimulatedAdsClient` is preserved in the repo for one-line rollback,
+ * but the factory no longer dispatches to it.
  */
 
 import type { AdPlatformClient } from '@leylek/shared-types';
 
-import { MetaAdsClient } from './meta-ads';
 import { RealGoogleAdsClient } from './real-google-ads';
-import { SimulatedAdsClient } from './simulated-ads';
+import { RealMetaAdsClient } from './real-meta-ads';
 
 export type AdPlatformProvider = 'google_ads' | 'meta';
 
-export interface RealCredentials {
-  /** Decrypted OAuth refresh token belonging to the user we are acting for. */
-  refreshToken: string;
-  /** Google Ads customer ID (10-digit, no dashes). */
-  customerId: string;
+/**
+ * Per-user credentials decrypted from `connected_accounts`. Empty
+ * strings work against the mock Workers (they don't validate); real
+ * production requires the gateway's AES helper to fill these in.
+ */
+export interface AdPlatformCredentials {
+  /** Google Ads OAuth refresh token. */
+  refreshToken?: string;
+  /** Google Ads 10-digit customer id (no dashes). */
+  customerId?: string;
+  /** Meta long-lived user access token (60 days). */
+  accessToken?: string;
+  /** Meta ad account id, without the `act_` prefix. */
+  adAccountId?: string;
+}
+
+/**
+ * The platform-shaped env shared by publisher-agent + analytics-worker.
+ * Both expose the same superset of fields; the factory only reads what
+ * its branch needs.
+ */
+export interface AdPlatformEnv {
+  GOOGLE_ADS_BASE_URL: string;
+  GOOGLE_ADS_OAUTH_URL: string;
+  META_ADS_BASE_URL: string;
+  GOOGLE_ADS_DEVELOPER_TOKEN: string;
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID: string;
+  GOOGLE_OAUTH_CLIENT_ID: string;
+  GOOGLE_OAUTH_CLIENT_SECRET: string;
+  META_API_VERSION?: string;
 }
 
 export interface MakeClientInput {
-  runtime: 'sim' | 'real';
   provider: AdPlatformProvider;
-  kv: KVNamespace;
-  realConfig?: {
-    developerToken: string;
-    loginCustomerId: string;
-    clientId: string;
-    clientSecret: string;
-    credentials: RealCredentials;
-  };
+  credentials: AdPlatformCredentials;
+  env: AdPlatformEnv;
 }
 
 export function makeAdPlatformClient(input: MakeClientInput): AdPlatformClient {
-  if (input.runtime === 'sim') {
-    return new SimulatedAdsClient(input.kv);
+  if (input.provider === 'google_ads') {
+    return new RealGoogleAdsClient({
+      baseUrl: input.env.GOOGLE_ADS_BASE_URL,
+      oauthUrl: input.env.GOOGLE_ADS_OAUTH_URL,
+      developerToken: input.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+      loginCustomerId: input.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+      customerId: input.credentials.customerId ?? '',
+      refreshToken: input.credentials.refreshToken ?? '',
+      clientId: input.env.GOOGLE_OAUTH_CLIENT_ID,
+      clientSecret: input.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    });
   }
-  if (input.provider === 'meta') {
-    return new MetaAdsClient();
-  }
-  const cfg = input.realConfig;
-  if (!cfg) {
-    throw new Error('makeAdPlatformClient: realConfig required when runtime="real"');
-  }
-  return new RealGoogleAdsClient({
-    developerToken: cfg.developerToken,
-    loginCustomerId: cfg.loginCustomerId,
-    customerId: cfg.credentials.customerId,
-    refreshToken: cfg.credentials.refreshToken,
-    clientId: cfg.clientId,
-    clientSecret: cfg.clientSecret,
+  return new RealMetaAdsClient({
+    baseUrl: input.env.META_ADS_BASE_URL,
+    accessToken: input.credentials.accessToken ?? '',
+    adAccountId: input.credentials.adAccountId ?? '',
+    apiVersion: input.env.META_API_VERSION ?? 'v21.0',
   });
 }

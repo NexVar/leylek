@@ -10,11 +10,6 @@ export interface Env {
 
   // Vars
   META_API_VERSION: string;
-  /**
-   * @deprecated Faz-4 drops this var (mockdata.md). The factory now routes
-   * by `provider` + base-URL, so the runtime distinction is gone.
-   */
-  LEYLEK_AD_PLATFORM: 'sim' | 'real';
   /** Google Ads REST root — mock worker URL in sandbox, googleads.googleapis.com in prod. */
   GOOGLE_ADS_BASE_URL: string;
   /** Google OAuth token endpoint — mock worker URL in sandbox, oauth2.googleapis.com in prod. */
