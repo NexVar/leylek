@@ -1,18 +1,21 @@
 /**
- * Leylek demo data seeder — sim mode.
+ * Leylek demo data seeder.
  *
  * Writes a deterministic 48 h fake history into Cloudflare D1 + KV so the
  * jury sees a populated dashboard the moment they log in:
  *
  *   - 1 demo user (`batuhanbayazitt@gmail.com`)
- *   - 1 connected `google_ads` account (sim-mode placeholder)
+ *   - 1 connected `google_ads` account (numeric customer id pinned)
  *   - 1 active campaign ("Demlik Pro — Akıllı Çay Demleme Cihazı")
  *   - 3 ads (AGGRESSIVE / STORY / TECHNICAL) with the catastrophic-loser
  *     metric curves from docs/AGENT_DECISIONS.md §5
  *   - 8×6 h `metric_snapshots` buckets per ad — totals match the table exactly
  *   - 3 pre-existing `CREATED_AD` rows in `agent_logs` (publisher agent)
- *   - `sim:campaign:*` / `sim:ad:*` / `sim:metrics:*` KV entries so the
- *     publisher-agent's `SimulatedAdsClient` recognises the external IDs.
+ *   - `gads:*` KV entries shaped the way `RealGoogleAdsClient` expects
+ *     when its `baseUrl` points at the `leylek-google-ads-mock` Worker
+ *     (mockdata.md). Flipping `GOOGLE_ADS_BASE_URL` to the real Google
+ *     endpoint and re-binding per-user OAuth credentials is the only
+ *     change needed to go to production.
  *
  * Idempotent: re-running this script produces the exact same final state.
  * The only randomness is in the bucket-level distribution of impressions /
@@ -25,7 +28,7 @@
  * Run (from repo root):
  *   pnpm db:seed
  *
- * PRD: §4 (60 sn demo), §8 (D1 schema), §10 (sim mode), §15 (jury).
+ * PRD: §4 (60 sn demo), §8 (D1 schema), §10 (port + adapter), §15 (jury).
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -43,23 +46,41 @@ const DEMO_USER = {
   companyName: 'Demlik Co.',
 } as const;
 
+/**
+ * Numeric Google Ads ids. `customerId` must match DEMO_CREDENTIALS in
+ * publisher-agent/src/index.ts and analytics-worker/src/index.ts — both
+ * the seed and the runtime use this as the KV key partition.
+ *
+ * Ids are deliberately tiny so they're easy to spot in logs; real Google
+ * ids would be 10-19 digit numbers. The mock doesn't enforce either way.
+ */
+const GADS = {
+  customerId: '1234567890',
+  campaignId: '2001',
+  budgetId: '3001',
+} as const;
+
 const DEMO_CAMPAIGN = {
   productUrl: 'https://demlik.pro/akilli-cay-demleme-cihazi',
-  externalId: 'sim_camp_demlik',
+  /** Stored on `campaigns.do_id`; consumed by publisher-agent + optimizer. */
+  externalId: GADS.campaignId,
   dailyBudgetKurus: 100_000,
-  // Friendly name used in KV (SimCampaign.name).  Not stored in D1 today;
-  // campaigns table has no `name` column — the product URL is the handle.
+  // Friendly name not stored in D1 today; campaigns table has no `name`
+  // column — the product URL is the handle. Used in KV records only.
   displayName: 'Demlik Pro — Akıllı Çay Demleme Cihazı',
 } as const;
 
 const CONNECTED_ACCOUNT = {
   provider: 'google_ads',
-  externalId: 'sim_customer_demlik',
-  accountLabel: 'Demlik — sim',
+  externalId: GADS.customerId,
+  accountLabel: 'Demlik',
 } as const;
 
 interface DemoAdSpec {
+  /** `<adGroupId>~<adId>` — Google's resource leaf shape; stored on `ads.googleAdId`. */
   externalId: string;
+  adGroupId: string;
+  adId: string;
   strategyType: 'AGGRESSIVE' | 'STORY' | 'TECHNICAL';
   adText: string;
   imagePrompt: string;
@@ -80,7 +101,9 @@ interface DemoAdSpec {
  */
 const ADS: readonly DemoAdSpec[] = [
   {
-    externalId: 'sim_ad_demlik_aggressive',
+    externalId: '4001~5001',
+    adGroupId: '4001',
+    adId: '5001',
     strategyType: 'AGGRESSIVE',
     adText:
       'Çayını 3 dakikada mükemmel demle.\nDemlik Pro ile ilk 100 sipariş %40 indirim — bugün bitmeden sepete ekle, çay keyfini bir üst seviyeye taşı.',
@@ -96,7 +119,9 @@ const ADS: readonly DemoAdSpec[] = [
       'AGGRESSIVE varyantı yayına alındı: kısa, kıtlık + indirim çerçeveli copy ile yüksek CTR hedeflendi.',
   },
   {
-    externalId: 'sim_ad_demlik_story',
+    externalId: '4002~5002',
+    adGroupId: '4002',
+    adId: '5002',
     strategyType: 'STORY',
     adText:
       'Anneannemin pazar sabahları demlediği çayın o kokusu vardı, hatırlar mısınız?\nDemlik Pro bu sabahları geri getiriyor — her bardakta aynı sıcaklık, aynı huzur.',
@@ -112,7 +137,9 @@ const ADS: readonly DemoAdSpec[] = [
       'STORY varyantı yayına alındı: duygusal nostaljik anlatım, KOBİ Türk hedef kitlesinde dönüşüm beklendi.',
   },
   {
-    externalId: 'sim_ad_demlik_technical',
+    externalId: '4003~5003',
+    adGroupId: '4003',
+    adId: '5003',
     strategyType: 'TECHNICAL',
     adText:
       'Demlik Pro: çift kademe sıcaklık kontrolü (60-95°C), 5 demleme programı, mobil uygulamadan zamanlama, ısı kaybı yalıtımı.\nLaboratuvarda test edilmiş tutarlılık, sertifikalı paslanmaz çelik gövde.',
@@ -131,7 +158,6 @@ const ADS: readonly DemoAdSpec[] = [
 
 const BUCKET_COUNT = 8;
 const HOURS_PER_BUCKET = 6;
-const WINDOW_HOURS = BUCKET_COUNT * HOURS_PER_BUCKET; // 48
 const SEED = 0x1eaf_5eed; // stable across reruns
 
 // Internal sanity check — script will hard-fail at startup if any total
@@ -586,60 +612,119 @@ async function insertMetricSnapshots(cf: Cloudflare, adIds: ReadonlyArray<number
   }
 }
 
-async function writeKvSimState(cf: Cloudflare): Promise<void> {
+async function writeKvDemoState(cf: Cloudflare): Promise<void> {
   const nowIso = new Date('2026-05-19T00:00:00.000Z').toISOString();
-  const windowStartIso = new Date(
-    new Date(nowIso).getTime() - WINDOW_HOURS * 3600 * 1000,
-  ).toISOString();
-
-  // SimCampaign shape matches workers/publisher-agent/src/clients/simulated-ads.ts
-  const simCampaign = {
-    externalId: DEMO_CAMPAIGN.externalId,
-    name: DEMO_CAMPAIGN.displayName,
-    dailyBudgetKurus: DEMO_CAMPAIGN.dailyBudgetKurus,
-    createdAt: nowIso,
-  };
+  const cid = GADS.customerId;
+  const budgetResourceName = `customers/${cid}/campaignBudgets/${GADS.budgetId}`;
+  const campaignResourceName = `customers/${cid}/campaigns/${GADS.campaignId}`;
+  // Daily budget in micros (Google API unit). 100_000 kurus = 1000 TRY = 1_000_000_000 micros.
+  const dailyMicros = (DEMO_CAMPAIGN.dailyBudgetKurus / 100) * 1_000_000;
 
   const pairs: Array<{ key: string; value: string }> = [
     {
-      key: `sim:campaign:${DEMO_CAMPAIGN.externalId}`,
-      value: JSON.stringify(simCampaign),
+      key: `gads:customer:${cid}`,
+      value: JSON.stringify({
+        resourceName: `customers/${cid}`,
+        id: cid,
+        descriptiveName: CONNECTED_ACCOUNT.accountLabel,
+        currencyCode: 'TRY',
+        timeZone: 'Europe/Istanbul',
+      }),
+    },
+    {
+      key: `gads:budget:${cid}:${GADS.budgetId}`,
+      value: JSON.stringify({
+        resourceName: budgetResourceName,
+        id: GADS.budgetId,
+        name: `${DEMO_CAMPAIGN.displayName} budget`,
+        amountMicros: dailyMicros,
+        deliveryMethod: 'STANDARD',
+        createdAt: nowIso,
+      }),
+    },
+    {
+      key: `gads:campaign:${cid}:${GADS.campaignId}`,
+      value: JSON.stringify({
+        resourceName: campaignResourceName,
+        id: GADS.campaignId,
+        name: DEMO_CAMPAIGN.displayName,
+        status: 'ENABLED',
+        advertisingChannelType: 'SEARCH',
+        // The googleAds:search budget-lookup handler reads this field.
+        campaignBudget: budgetResourceName,
+        networkSettings: {
+          target_google_search: true,
+          target_search_network: false,
+          target_content_network: false,
+        },
+        createdAt: nowIso,
+      }),
     },
   ];
 
   for (const ad of ADS) {
-    const simAd = {
-      externalId: ad.externalId,
-      campaignExternalId: DEMO_CAMPAIGN.externalId,
-      strategyType: ad.strategyType,
-      adText: ad.adText,
-      imagePrompt: ad.imagePrompt,
-      status: 'active' as const,
-      createdAt: nowIso,
-    };
+    const adGroupResourceName = `customers/${cid}/adGroups/${ad.adGroupId}`;
+    const adResourceName = `customers/${cid}/adGroupAds/${ad.externalId}`;
+    const [headline, ...bodyParts] = ad.adText.split('\n');
+    const body = bodyParts.join(' ').trim() || ad.adText;
+
     pairs.push({
-      key: `sim:ad:${ad.externalId}`,
-      value: JSON.stringify(simAd),
+      key: `gads:adGroup:${cid}:${ad.adGroupId}`,
+      value: JSON.stringify({
+        resourceName: adGroupResourceName,
+        id: ad.adGroupId,
+        name: `${ad.strategyType} group`,
+        campaign: campaignResourceName,
+        status: 'ENABLED',
+        type: 'SEARCH_STANDARD',
+        cpcBidMicros: 1_000_000,
+        createdAt: nowIso,
+      }),
     });
 
-    // MetricWindow shape — matches @leylek/shared-types ad-platform.ts
-    const metricWindow = {
-      externalAdId: ad.externalId,
-      windowStart: windowStartIso,
-      windowEnd: nowIso,
-      impressions: ad.impressions,
-      clicks: ad.clicks,
-      conversions: ad.conversions,
-      spendKurus: ad.spendKurus,
-    };
     pairs.push({
-      key: `sim:metrics:${ad.externalId}`,
-      value: JSON.stringify(metricWindow),
+      key: `gads:ad:${cid}:${ad.externalId}`,
+      value: JSON.stringify({
+        resourceName: adResourceName,
+        adGroup: adGroupResourceName,
+        status: 'ENABLED',
+        ad: {
+          final_urls: [DEMO_CAMPAIGN.productUrl],
+          responsive_search_ad: {
+            headlines: [
+              { text: (headline ?? 'Leylek').slice(0, 30) },
+              { text: ad.strategyType.slice(0, 30) },
+              { text: 'Leylek AI Reklam' },
+            ],
+            descriptions: [{ text: body.slice(0, 90) }, { text: 'Otonom AI reklam yönetimi' }],
+          },
+        },
+        strategyType: ad.strategyType,
+        adText: ad.adText,
+        imagePrompt: ad.imagePrompt,
+        createdAt: nowIso,
+      }),
+    });
+
+    // Metrics record consumed by googleAds:search query 2. We key by the
+    // bare numeric ad id so the GAQL `WHERE ad_group_ad.ad.id = <id>`
+    // matches via the handler's direct lookup; values are strings to
+    // mirror Google's wire shape.
+    pairs.push({
+      key: `gads:metrics:${cid}:${ad.adId}`,
+      value: JSON.stringify({
+        impressions: String(ad.impressions),
+        clicks: String(ad.clicks),
+        conversions: String(ad.conversions),
+        // Google reports cost in micros: 1 currency unit = 1_000_000 micros.
+        // Our spendKurus is in kurus (1 TRY = 100 kurus), so micros = kurus * 10_000.
+        costMicros: String(ad.spendKurus * 10_000),
+      }),
     });
   }
 
   await cf.kvBulkPut(pairs);
-  ok(`KV bulk wrote ${pairs.length} sim:* keys`);
+  ok(`KV bulk wrote ${pairs.length} gads:* keys`);
 }
 
 // ---------------------------------------------------------------------------
@@ -719,11 +804,11 @@ async function main(): Promise<void> {
   ok(`agent_logs (CREATED_AD × ${adIds.length})`);
 
   // 5. Metric snapshots
-  info('6/6 inserting metric_snapshots + writing sim:* KV entries');
+  info('6/6 inserting metric_snapshots + writing gads:* KV entries');
   await insertMetricSnapshots(cf, adIds);
   ok('metric_snapshots written');
 
-  await writeKvSimState(cf);
+  await writeKvDemoState(cf);
 
   console.log();
   console.log(
