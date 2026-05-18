@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLogout } from '../api/hooks';
 import { cn } from '../lib/cn';
 import { useAuthStore } from '../store/auth';
+import { BellBadge } from './BellBadge';
 import { Logo } from './Logo';
 
 interface AppShellProps {
@@ -45,7 +46,8 @@ export function AppShell({ children }: AppShellProps) {
             </TopNavLink>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {user ? <BellBadge /> : null}
             {user ? (
               <AvatarMenu
                 onLogout={() => {

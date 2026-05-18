@@ -13,6 +13,7 @@ import type {
   CampaignDetailResponse,
   CampaignListResponse,
   ConnectedAccountsResponse,
+  GlobalNotificationsResponse,
   MagicLinkRequestResponse,
   NotificationApproveResponse,
   NotificationRecord,
@@ -27,6 +28,7 @@ export const queryKeys = {
   campaign: (id: number) => ['campaigns', id] as const,
   campaignLogs: (id: number) => ['campaigns', id, 'logs'] as const,
   campaignNotifications: (id: number) => ['campaigns', id, 'notifications'] as const,
+  globalNotifications: (status: 'pending' | 'all') => ['notifications', status] as const,
   accounts: ['auth', 'accounts'] as const,
 };
 
@@ -224,9 +226,11 @@ export function useApproveNotification(campaignId: number) {
       ),
     onSuccess: (data) => {
       patchNotification(qc, campaignId, data.notification);
-      // The approve path triggers a publisher action; refresh ads + logs.
+      // The approve path triggers a publisher action; refresh ads + logs +
+      // the global bell so the resolved proposal disappears from the inbox.
       void qc.invalidateQueries({ queryKey: queryKeys.campaign(campaignId) });
       void qc.invalidateQueries({ queryKey: queryKeys.campaignLogs(campaignId) });
+      void qc.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -241,7 +245,29 @@ export function useRejectNotification(campaignId: number) {
       ),
     onSuccess: (data) => {
       patchNotification(qc, campaignId, data.notification);
+      void qc.invalidateQueries({ queryKey: ['notifications'] });
     },
+  });
+}
+
+/**
+ * Cross-campaign listing for the header bell + InboxDrawer.
+ *
+ * Polls every 30 s while mounted — pending count drives the bell badge,
+ * so the user sees new Co-Pilot proposals without refreshing. We poll
+ * rather than stream because the optimizer cron runs every 6 h; even
+ * 30 s is generous, and SSE/WebSocket plumbing isn't worth it for the
+ * demo cadence.
+ */
+export function useGlobalNotifications(status: 'pending' | 'all' = 'pending', enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.globalNotifications(status),
+    queryFn: ({ signal }) =>
+      api<GlobalNotificationsResponse>(`/api/notifications?status=${status}`, { signal }),
+    enabled,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
   });
 }
 

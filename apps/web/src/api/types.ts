@@ -147,6 +147,22 @@ export interface NotificationsResponse {
   notifications: NotificationRecord[];
 }
 
+/**
+ * Global (cross-campaign) listing returned by `GET /api/notifications`.
+ * Each row carries the owning campaign so the inbox can display proposals
+ * grouped/labeled by campaign without a second round-trip. `pendingCount`
+ * is always set so the header bell stays correct independent of the
+ * requested `status` filter.
+ */
+export interface GlobalNotificationRecord extends NotificationRecord {
+  campaign: { id: number; productUrl: string } | null;
+}
+
+export interface GlobalNotificationsResponse {
+  notifications: GlobalNotificationRecord[];
+  pendingCount: number;
+}
+
 export interface NotificationApproveResponse {
   notification: NotificationRecord;
   agentLogId: number;
