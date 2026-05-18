@@ -1,0 +1,13 @@
+name = "leylek-google-ads-mock"
+main = "src/index.ts"
+compatibility_date = "2026-05-19"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# Shared KV namespace — mock state lives under `gads:*` prefix so it cannot
+# collide with `sim:*`, `meta:*`, `magic_link:*`, or `oauth_state:*`.
+[[kv_namespaces]]
+binding = "KV"
+id = "e9c37be505844e1dbdb0b83b8311ed17"
