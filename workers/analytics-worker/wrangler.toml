@@ -8,8 +8,15 @@ enabled = true
 
 [vars]
 META_API_VERSION = "v21.0"
-# Default to sim; flip to "real" once Google Ads dev_token Standard access lands (PRD §10).
+# Deprecated — Faz-4 drops `LEYLEK_AD_PLATFORM` (mockdata.md). Kept here
+# so the single Faz-0 commit doesn't break typecheck.
 LEYLEK_AD_PLATFORM = "sim"
+
+# Ad-platform base URLs — see workers/publisher-agent/wrangler.toml for the
+# same vars and the prod-flip recipe.
+GOOGLE_ADS_BASE_URL = "https://leylek-google-ads-mock.batuhanbayazitt.workers.dev"
+GOOGLE_ADS_OAUTH_URL = "https://leylek-google-ads-mock.batuhanbayazitt.workers.dev"
+META_ADS_BASE_URL = "https://leylek-meta-ads-mock.batuhanbayazitt.workers.dev"
 
 # Cron — every 15 minutes in production
 [triggers]

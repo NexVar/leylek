@@ -10,8 +10,17 @@ export interface Env {
 
   // Vars
   META_API_VERSION: string;
-  /** Selects which AdPlatformClient the factory builds. Default 'sim' for demo. */
+  /**
+   * @deprecated Faz-4 drops this var (mockdata.md). The factory now routes
+   * by `provider` + base-URL, so the runtime distinction is gone.
+   */
   LEYLEK_AD_PLATFORM: 'sim' | 'real';
+  /** Google Ads REST root — mock worker URL in sandbox, googleads.googleapis.com in prod. */
+  GOOGLE_ADS_BASE_URL: string;
+  /** Google OAuth token endpoint — mock worker URL in sandbox, oauth2.googleapis.com in prod. */
+  GOOGLE_ADS_OAUTH_URL: string;
+  /** Meta Marketing API root — mock worker URL in sandbox, graph.facebook.com in prod. */
+  META_ADS_BASE_URL: string;
 
   // Secrets
   META_APP_ID: string;
