@@ -205,6 +205,26 @@
   }
 }
 
+@keyframes leylek-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes leylek-caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .animate-fade-up {
   animation: leylek-fade-up 200ms var(--ease-fluid) both;
 }
@@ -216,4 +236,10 @@
 }
 .animate-pulse-coral {
   animation: leylek-pulse-coral 1600ms ease-out infinite;
+}
+.animate-drawer-in {
+  animation: leylek-drawer-in 240ms var(--ease-fluid) both;
+}
+.animate-caret-blink {
+  animation: leylek-caret-blink 700ms steps(1, end) infinite;
 }
