@@ -78,8 +78,6 @@ React (Pages) ──── /api/* ────► gateway
 - **google-ads-mock + meta-ads-mock** — Google Ads REST v17 + Meta Marketing v21.0 subset'lerini emüle eder. State paylaşılan KV'de `gads:*` / `meta:*` prefix'leri ile. Sandbox demo bunlara konuşur.
 - **Campaign DO** — per-campaign decision history, atomic Gemini → publisher zincir.
 
-Detaylı mimari kararları: [`docs/AGENT_DECISIONS.md`](./docs/AGENT_DECISIONS.md). 11 wave'lik build geçmişi: [`docs/AGENT_BUILD_LOG.md`](./docs/AGENT_BUILD_LOG.md).
-
 ## Repo yapısı
 
 ```
@@ -103,14 +101,8 @@ leylek/
 │   ├── e2e-demo.sh                # agent-browser walkthrough against prod
 │   └── setup-cloudflare-secrets.sh
 ├── docs/
-│   ├── PRD.md                     # Product Requirement Document
-│   ├── ARCHITECTURE.md, DESIGN.md
-│   ├── AGENT_DECISIONS.md, AGENT_BUILD_LOG.md
-│   ├── DEMO_PLAYBOOK.md           # 60-saniyelik demo akışı
-│   ├── mockdata.md                # Wave 9 mock worker planı (tarihi)
 │   └── screenshots/               # README ekran görüntüleri
 ├── .github/workflows/ci.yml       # build + lint + typecheck + deploy
-├── CLAUDE.md + AGENTS.md          # Repo-level agent brief (twin files)
 └── package.json + pnpm-workspace.yaml
 ```
 
@@ -152,7 +144,7 @@ pnpm db:seed
 ./scripts/e2e-demo.sh
 ```
 
-Akış: magic-link giriş → dashboard → kampanya detay → **"Şimdi Optimize Et"** → Gemini canlı reasoning stream → AGGRESSIVE reklam PAUSED → ajan timeline'da yeni karar gözüküyor. Detaylı senaryo + ekran görüntüleri: [`docs/DEMO_PLAYBOOK.md`](./docs/DEMO_PLAYBOOK.md).
+Akış: magic-link giriş → dashboard → kampanya detay → **"Şimdi Optimize Et"** → Gemini canlı reasoning stream → AGGRESSIVE reklam PAUSED → ajan timeline'da yeni karar gözüküyor. 
 
 Co-Pilot modunu denemek için kampanya başlığındaki **Otopilot ↔ Co-Pilot** pill'ine tıkla, sonra "Şimdi Optimize Et" — bu kez karar header'daki bell'e bekleyen öneri olarak düşer; bell click → drawer → Onayla.
 
@@ -164,6 +156,29 @@ Co-Pilot modunu denemek için kampanya başlığındaki **Otopilot ↔ Co-Pilot*
 - `main` branch push: ek olarak `deploy-pages` (Pages → `leylek.nexvar.io`) + `deploy-workers` (7 worker dependency order: mocks önce, sonra leaf'ler, sonra optimizer, sonra gateway).
 
 Secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` `gh secret set` ile repo'ya set'lendi. Pages projesi Direct Uploads tipinde (`cannot update the source` API hatası nedeniyle Git source'a çevrilemiyor); CI'dan deploy aynı sonucu veriyor.
+
+## Yazarlar
+
+<table>
+  <tr>
+    <td align="center" width="160">
+      <a href="https://github.com/Batuhan4">
+        <img src="https://github.com/Batuhan4.png" width="96" alt="Batuhan Bayazıt"/><br/>
+        <sub><b>Batuhan Bayazıt</b></sub>
+      </a><br/>
+      <sub>@Batuhan4</sub>
+    </td>
+    <td align="center" width="160">
+      <a href="https://github.com/mertdlkr">
+        <img src="https://github.com/mertdlkr.png" width="96" alt="Mert Ali Dalkır"/><br/>
+        <sub><b>Mert Ali Dalkır</b></sub>
+      </a><br/>
+      <sub>@mertdlkr</sub>
+    </td>
+  </tr>
+</table>
+
+**Canlı demo:** <https://leylek.nexvar.io>
 
 ## Lisans
 
