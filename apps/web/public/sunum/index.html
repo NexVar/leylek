@@ -4,14 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Leylek — Otonom Dijital Pazarlama Platformu</title>
+<meta name="theme-color" content="#0F1729">
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="../favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   html { font-size: 20px; }
   html, body { height: 100%; width: 100%; overflow: hidden; }
   body {
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     background: #070C14;
     color: #fff;
   }
@@ -55,9 +60,9 @@
     filter: blur(80px);
     pointer-events: none;
   }
-  .o1 { width: 500px; height: 500px; background: rgba(232,93,74,.1); top: -10%; right: -5%; }
-  .o2 { width: 350px; height: 350px; background: rgba(212,168,83,.05); bottom: -15%; left: -5%; }
-  .o3 { width: 220px; height: 220px; background: rgba(232,93,74,.04); top: 40%; left: 60%; }
+  .o1 { width: 500px; height: 500px; background: rgba(255,107,92,.1); top: -10%; right: -5%; }
+  .o2 { width: 350px; height: 350px; background: rgba(245,158,11,.05); bottom: -15%; left: -5%; }
+  .o3 { width: 220px; height: 220px; background: rgba(255,107,92,.04); top: 40%; left: 60%; }
   
   /* Grid */
   .gp {
@@ -90,23 +95,23 @@
     pointer-events: none;
   }
   .ch * { pointer-events: auto; }
-  .brd { font-family: 'Outfit', sans-serif; font-size: .7rem; font-weight: 800; letter-spacing: .05em; color: rgba(255,255,255,.2); }
-  .brd em { font-style: normal; color: #E85D4A; }
+  .brd { font-family: 'Inter', sans-serif; font-size: .7rem; font-weight: 800; letter-spacing: .05em; color: rgba(255,255,255,.2); }
+  .brd em { font-style: normal; color: #FF6B5C; }
   .cr { display: flex; align-items: center; gap: 1rem; }
   .tm {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: .78rem; font-weight: 700;
     padding: .2rem .6rem; border-radius: .35rem;
     background: rgba(255,255,255,.03);
     border: 1px solid rgba(255,255,255,.05);
     min-width: 54px; text-align: center;
   }
-  .tm.ur { color: #E85D4A; border-color: rgba(232,93,74,.25); background: rgba(232,93,74,.1); }
-  .pn { font-family: 'Outfit', sans-serif; font-size: .6rem; font-weight: 600; color: rgba(255,255,255,.15); letter-spacing: .08em; }
+  .tm.ur { color: #FF6B5C; border-color: rgba(255,107,92,.25); background: rgba(255,107,92,.1); }
+  .pn { font-family: 'Inter', sans-serif; font-size: .6rem; font-weight: 600; color: rgba(255,255,255,.15); letter-spacing: .08em; }
   .pn em { font-style: normal; color: rgba(255,255,255,.3); }
   
   .sn {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: .55rem; font-weight: 600;
     letter-spacing: .12em; text-transform: uppercase;
     color: rgba(255,255,255,.07);
@@ -121,15 +126,15 @@
     display: inline-flex; align-items: center; gap: .35rem;
     padding: .2rem .75rem; border-radius: 100px;
     font-size: .58rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-    background: rgba(232,93,74,.1);
-    border: 1px solid rgba(232,93,74,.18);
-    color: #E85D4A;
+    background: rgba(255,107,92,.1);
+    border: 1px solid rgba(255,107,92,.18);
+    color: #FF6B5C;
     margin-bottom: 1rem;
   }
-  .bdot { width: 4px; height: 4px; border-radius: 50%; background: #E85D4A; }
+  .bdot { width: 4px; height: 4px; border-radius: 50%; background: #FF6B5C; }
   
   h1 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: clamp(2.5rem, 6vw, 4.5rem);
     font-weight: 900;
     line-height: 1.02;
@@ -137,21 +142,21 @@
     margin-bottom: .4rem;
   }
   h1 .hl {
-    background: linear-gradient(135deg, #E85D4A, #F07865);
+    background: linear-gradient(135deg, #FF6B5C, #F07865);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   
   h2 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: clamp(1.3rem, 3vw, 2.4rem);
     font-weight: 800;
     line-height: 1.12;
     letter-spacing: -.025em;
     margin-bottom: .5rem;
   }
-  h2 .hl { color: #E85D4A; }
+  h2 .hl { color: #FF6B5C; }
   
   .lead {
     font-size: .92rem;
@@ -162,7 +167,7 @@
   
   .accent {
     width: 60px; height: 3px;
-    background: #E85D4A;
+    background: #FF6B5C;
     border-radius: 2px;
     margin: 1rem 0;
   }
@@ -170,13 +175,13 @@
   .btn {
     display: inline-flex; align-items: center; gap: .4rem;
     padding: .6rem 1.4rem; border-radius: 100px;
-    background: #E85D4A; color: #fff;
+    background: #FF6B5C; color: #fff;
     text-decoration: none; font-weight: 700; font-size: .78rem;
     border: none; cursor: pointer;
     transition: all .2s ease;
     margin-top: .6rem;
   }
-  .btn:hover { background: #C94432; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(232,93,74,.2); }
+  .btn:hover { background: #E5594B; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255,107,92,.2); }
   .btn svg { width: 14px; height: 14px; transition: transform .2s; }
   .btn:hover svg { transform: translateX(3px); }
   
@@ -187,12 +192,12 @@
     background: rgba(255,255,255,.02);
     border: 1px solid rgba(255,255,255,.04);
   }
-  .card h3 { font-family: 'Outfit', sans-serif; font-size: .8rem; font-weight: 700; margin-bottom: .1rem; }
+  .card h3 { font-family: 'Inter', sans-serif; font-size: .8rem; font-weight: 700; margin-bottom: .1rem; }
   .card p { font-size: .7rem; color: rgba(255,255,255,.5); line-height: 1.4; }
   .ci { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
   .ci svg { width: 15px; height: 15px; }
-  .ci.c { background: rgba(232,93,74,.1); } .ci.c svg { color: #E85D4A; }
-  .ci.g { background: rgba(212,168,83,.05); } .ci.g svg { color: #D4A853; }
+  .ci.c { background: rgba(255,107,92,.1); } .ci.c svg { color: #FF6B5C; }
+  .ci.g { background: rgba(245,158,11,.05); } .ci.g svg { color: #F59E0B; }
   
   .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; max-width: 720px; margin-top: 1rem; }
   .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .55rem; max-width: 860px; margin-top: 1rem; }
@@ -200,38 +205,38 @@
   /* Steps */
   .steps { display: flex; gap: .6rem; margin-top: 1rem; max-width: 940px; }
   .st { flex: 1; padding: 1rem; border-radius: .65rem; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.04); position: relative; }
-  .st:not(:last-child)::after { content: '→'; position: absolute; right: -.4rem; top: 50%; transform: translateY(-50%); color: #E85D4A; opacity: .2; font-size: .85rem; }
-  .st .no { font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 900; color: #E85D4A; opacity: .1; margin-bottom: .3rem; }
+  .st:not(:last-child)::after { content: '→'; position: absolute; right: -.4rem; top: 50%; transform: translateY(-50%); color: #FF6B5C; opacity: .2; font-size: .85rem; }
+  .st .no { font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 900; color: #FF6B5C; opacity: .1; margin-bottom: .3rem; }
   .st h4 { font-size: .7rem; font-weight: 700; margin-bottom: .1rem; }
   .st p { font-size: .62rem; color: rgba(255,255,255,.5); line-height: 1.35; }
   
   /* Architecture flow */
   .af { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; justify-content: center; margin: 1rem 0; }
   .ae { padding: .35rem .65rem; border-radius: .4rem; font-size: .6rem; font-weight: 600; white-space: nowrap; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.055); }
-  .ae.h { background: #E85D4A; border-color: #E85D4A; }
-  .ae.a { background: rgba(232,93,74,.08); border-color: rgba(232,93,74,.12); color: #E85D4A; }
+  .ae.h { background: #FF6B5C; border-color: #FF6B5C; }
+  .ae.a { background: rgba(255,107,92,.08); border-color: rgba(255,107,92,.12); color: #FF6B5C; }
   .ae.i { background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.03); color: rgba(255,255,255,.4); }
   .aa { color: rgba(255,255,255,.08); font-size: .75rem; }
   
   .wg { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; max-width: 760px; margin: .6rem auto 0; }
   .wc { padding: .65rem .8rem; border-radius: .55rem; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.035); }
-  .wc h4 { font-family: 'Outfit', sans-serif; font-size: .68rem; font-weight: 700; margin-bottom: .05rem; }
+  .wc h4 { font-family: 'Inter', sans-serif; font-size: .68rem; font-weight: 700; margin-bottom: .05rem; }
   .wc p { font-size: .58rem; color: rgba(255,255,255,.5); line-height: 1.3; }
   .wc .tg { display: inline-block; font-size: .45rem; padding: .05rem .3rem; border-radius: 3px; background: rgba(255,255,255,.03); color: rgba(255,255,255,.2); margin-top: .15rem; text-transform: uppercase; letter-spacing: .03em; }
   
   /* Modes */
   .modes { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; max-width: 700px; margin-top: 1rem; }
   .mb { padding: 1.3rem; border-radius: .8rem; }
-  .mb.a { background: linear-gradient(135deg, rgba(232,93,74,.07), transparent); border: 1px solid rgba(232,93,74,.12); }
+  .mb.a { background: linear-gradient(135deg, rgba(255,107,92,.07), transparent); border: 1px solid rgba(255,107,92,.12); }
   .mb.b { background: rgba(255,255,255,.015); border: 1px solid rgba(255,255,255,.05); }
   .mb .mi { font-size: 1.1rem; margin-bottom: .4rem; }
-  .mb h3 { font-family: 'Outfit', sans-serif; font-size: .95rem; font-weight: 700; margin-bottom: .2rem; }
+  .mb h3 { font-family: 'Inter', sans-serif; font-size: .95rem; font-weight: 700; margin-bottom: .2rem; }
   .mb p { font-size: .7rem; color: rgba(255,255,255,.5); line-height: 1.45; margin-bottom: .5rem; }
   .mt { display: inline-block; padding: .12rem .55rem; border-radius: 100px; font-size: .52rem; font-weight: 600; }
-  .mb.a .mt { background: rgba(232,93,74,.1); color: #E85D4A; }
+  .mb.a .mt { background: rgba(255,107,92,.1); color: #FF6B5C; }
   .mb.b .mt { background: rgba(255,255,255,.04); color: rgba(255,255,255,.4); }
   
-  .pb { position: fixed; bottom: 0; left: 0; height: 2px; background: #E85D4A; z-index: 200; transition: width .6s cubic-bezier(.76,0,.24,1); }
+  .pb { position: fixed; bottom: 0; left: 0; height: 2px; background: #FF6B5C; z-index: 200; transition: width .6s cubic-bezier(.76,0,.24,1); }
   
   .nv { position: fixed; top: 50%; transform: translateY(-50%); z-index: 99; }
   .nl { left: 1rem; } .nr { right: 1rem; }
@@ -255,7 +260,7 @@
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   }
   .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.1); cursor: pointer; border: none; transition: .35s; }
-  .dot.ac { background: #E85D4A; width: 18px; border-radius: 3px; }
+  .dot.ac { background: #FF6B5C; width: 18px; border-radius: 3px; }
   .dot:hover:not(.ac) { background: rgba(255,255,255,.2); }
   
   /* Tags */
@@ -266,13 +271,13 @@
     color: rgba(255,255,255,.4); font-size: .5rem;
   }
   
-  .sbox { padding: 1rem; border-radius: .7rem; background: linear-gradient(135deg, rgba(232,93,74,.06), transparent); border: 1px solid rgba(232,93,74,.1); }
-  .sbox h3 { font-family: 'Outfit', sans-serif; font-size: .85rem; font-weight: 700; margin-bottom: .15rem; }
+  .sbox { padding: 1rem; border-radius: .7rem; background: linear-gradient(135deg, rgba(255,107,92,.06), transparent); border: 1px solid rgba(255,107,92,.1); }
+  .sbox h3 { font-family: 'Inter', sans-serif; font-size: .85rem; font-weight: 700; margin-bottom: .15rem; }
   .sbox p { font-size: .65rem; color: rgba(255,255,255,.5); line-height: 1.4; }
   
   .dtable { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; max-width: 760px; margin: .7rem auto 0; }
   .dc { padding: .8rem; border-radius: .6rem; background: rgba(255,255,255,.015); border: 1px solid rgba(255,255,255,.035); }
-  .dc h3 { font-family: 'Outfit', sans-serif; font-size: .75rem; font-weight: 700; text-align: center; margin-bottom: .1rem; }
+  .dc h3 { font-family: 'Inter', sans-serif; font-size: .75rem; font-weight: 700; text-align: center; margin-bottom: .1rem; }
   .dc p { font-size: .6rem; color: rgba(255,255,255,.5); }
   
   /* Animations */
@@ -306,6 +311,301 @@
     .wg { grid-template-columns: 1fr; }
     .cr { gap: .5rem; }
   }
+
+  /* Leylek app theme alignment */
+  :root {
+    --primary: #0f1729;
+    --primary-hover: #1a2440;
+    --primary-foreground: #ffffff;
+    --accent: #ff6b5c;
+    --accent-hover: #e5594b;
+    --accent-tint: #ffedeb;
+    --surface: #f4f5f7;
+    --surface-raised: #ffffff;
+    --surface-sunken: #e8eaef;
+    --ink: #0b0f1a;
+    --ink-muted: #4a5260;
+    --ink-subtle: #8089a0;
+    --border: #d8dce3;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --shadow-card-sm: 0 1px 2px rgba(11, 15, 26, 0.04);
+    --shadow-card-md: 0 4px 12px rgba(11, 15, 26, 0.06), 0 1px 3px rgba(11, 15, 26, 0.04);
+    --ease-fluid: cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  html { font-size: 20px; }
+  body {
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--surface);
+    color: var(--ink);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .track { transition: transform .45s var(--ease-fluid); }
+  .slide {
+    background: var(--surface) !important;
+    color: var(--ink);
+    padding: 5.2rem 4rem 3rem;
+  }
+  .slide-bg { background: var(--surface); }
+  .bg-0, .bg-1, .bg-2, .bg-3, .bg-4, .bg-5 { background: var(--surface) !important; }
+  .o1, .o2, .o3 { display: none; }
+  .gp {
+    background-image:
+      linear-gradient(rgba(15, 23, 41, .035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 41, .035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+  }
+
+  .ch {
+    min-height: 64px;
+    padding: 0 1.5rem;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-card-sm);
+  }
+  .brd {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    color: var(--ink);
+  }
+  .brd em { color: var(--accent); }
+  .brand-mark {
+    display: inline-flex;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 6px;
+    background: transparent;
+    padding: .12rem;
+    overflow: hidden;
+  }
+  .brand-mark img { width: 100%; height: 100%; object-fit: contain; }
+  .cr { gap: .75rem; }
+  .tm {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .65rem;
+    font-weight: 500;
+    padding: .28rem .6rem;
+    border-radius: 6px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+  }
+  .tm.ur {
+    color: var(--accent);
+    border-color: rgba(255, 107, 92, .25);
+    background: rgba(255, 107, 92, .08);
+  }
+  .pn {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    color: var(--ink-subtle);
+    letter-spacing: 0;
+  }
+  .pn em { color: var(--ink); }
+
+  .sn {
+    color: var(--ink-subtle);
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  .badge {
+    border-radius: 6px;
+    border-color: var(--accent-tint);
+    background: var(--accent-tint);
+    color: var(--accent);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: .62rem;
+    font-weight: 500;
+  }
+  .bdot { background: var(--accent); }
+
+  h1, h2, h3, h4, .card h3, .sbox h3, .dc h3, .wc h4, .st h4, .mb h3 {
+    font-family: "Inter", system-ui, sans-serif !important;
+    letter-spacing: 0 !important;
+    color: var(--ink);
+  }
+  h1 {
+    font-size: clamp(2.1rem, 5vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  h2 {
+    font-size: clamp(1.45rem, 3vw, 2.05rem);
+    font-weight: 700;
+    line-height: 1.18;
+  }
+  h1 .hl, h2 .hl {
+    color: var(--accent);
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+  .lead {
+    color: var(--ink-muted);
+    font-size: .92rem;
+    line-height: 1.6;
+  }
+  .accent {
+    height: 2px;
+    background: var(--accent);
+    border-radius: 999px;
+  }
+
+  .card,
+  .st,
+  .wc,
+  .dc,
+  .sbox,
+  .mb,
+  div[style*="rgba(255,107,92"],
+  div[style*="rgba(245,158,11"],
+  div[style*="rgba(255,255,255,.03)"] {
+    background: var(--surface-raised) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--shadow-card-sm);
+  }
+  .card { padding: 1rem 1.1rem; }
+  .card p,
+  .st p,
+  .wc p,
+  .dc p,
+  .sbox p,
+  .mb p,
+  p[style*="rgba(255,255,255"],
+  span[style*="rgba(255,255,255"] {
+    color: var(--ink-muted) !important;
+  }
+  .card h3, .st h4, .wc h4, .dc h3, .sbox h3 { color: var(--ink) !important; }
+  .card code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .88em;
+    color: var(--primary);
+    background: var(--surface-sunken);
+    border-radius: 4px;
+    padding: .02rem .2rem;
+  }
+  .ci {
+    border-radius: 6px;
+    background: var(--accent-tint) !important;
+  }
+  .ci svg, .ci.c svg, .ci.g svg { color: var(--accent) !important; }
+  .st:not(:last-child)::after { color: var(--accent); opacity: .7; }
+  .st .no {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    color: var(--accent);
+    opacity: 1;
+    font-size: .75rem;
+  }
+
+  .ae {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    border-radius: 6px;
+  }
+  .ae.h {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .ae.a {
+    background: var(--accent-tint);
+    border-color: var(--accent-tint);
+    color: var(--accent);
+  }
+  .ae.i {
+    background: var(--surface-raised);
+    color: var(--ink-muted);
+    border-color: var(--border);
+  }
+  .aa { color: var(--ink-subtle); }
+  .tag, .tg, .mt {
+    background: var(--surface-sunken) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--ink-muted) !important;
+    border-radius: 6px;
+  }
+  .btn {
+    background: var(--accent);
+    color: var(--primary-foreground);
+    border-radius: 12px;
+    box-shadow: none;
+    transition: background .15s ease-out, transform .15s ease-out;
+  }
+  .btn:hover {
+    background: var(--accent-hover);
+    box-shadow: var(--shadow-card-md);
+    transform: translateY(-1px);
+  }
+  span[style*="#FF6B5C"], strong[style*="#F59E0B"] { color: var(--accent) !important; }
+  span[style*="#16A34A"] { color: var(--success) !important; }
+  span[style*="#F59E0B"] { color: var(--warning) !important; }
+  .closing-mark {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto .9rem;
+    border-radius: 16px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card-sm);
+    padding: .35rem;
+  }
+  .closing-mark img { width: 100%; height: 100%; object-fit: contain; }
+
+  .pb { background: var(--accent); height: 3px; }
+  .nb {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+    box-shadow: var(--shadow-card-sm);
+  }
+  .nb:hover {
+    background: var(--surface-sunken);
+    color: var(--ink);
+    border-color: var(--border);
+  }
+  .dots {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card-sm);
+  }
+  .dot { background: var(--surface-sunken); }
+  .dot.ac { background: var(--accent); }
+  .dot:hover:not(.ac) { background: var(--ink-subtle); }
+
+  @media (max-width: 860px) {
+    .slide { padding: 5rem 1.25rem 4.25rem; }
+    .g3, .modes { grid-template-columns: 1fr; }
+    .g2, .dtable { grid-template-columns: 1fr; }
+    .steps { flex-direction: column; }
+    .st::after { display: none; }
+    .wg { grid-template-columns: 1fr 1fr; }
+    .af { flex-direction: column; }
+    .aa { transform: rotate(90deg); }
+  }
+  @media (max-width: 500px) {
+    html { font-size: 18px; }
+    .slide { padding: 4.75rem 1rem 4.25rem; }
+    .ch { padding: 0 .8rem; }
+    .brd { font-size: 1.1rem; }
+    .brand-mark { width: 1.35rem; height: 1.35rem; }
+    .wg { grid-template-columns: 1fr; }
+    .nv { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -313,10 +613,10 @@
 <div class="pb" id="pb"></div>
 
 <div class="ch">
-  <div class="brd">LEYLEK<em>.</em></div>
+  <div class="brd"><span class="brand-mark"><img src="../brand/leylek-mark.png" alt=""></span><span>Leyl<em>ek</em></span></div>
   <div class="cr">
     <div class="tm" id="tm">05:00</div>
-    <div class="pn"><em id="cp">01</em> / 09</div>
+    <div class="pn"><em id="cp">01</em> / 10</div>
   </div>
 </div>
 
@@ -347,12 +647,12 @@
     <h2>KOBİ'ler Neden <span class="hl">Zarar Ediyor</span></h2>
     <p class="lead" style="margin-bottom:0">T&uuml;rkiye'deki KOBİ ve e-ticaret satıcıları reklam y&ouml;netiminde &uuml;&ccedil; temel acı yaşıyor.</p>
     <div class="g3">
-      <div class="card" style="border-left:3px solid #E85D4A"><h3>🚫 Karmaşıklık</h3><p>Meta + Google Ads aray&uuml;zleri &ccedil;ok karışık. Esnaf "boost post"tan ileri gidemiyor.</p></div>
-      <div class="card" style="border-left:3px solid #D4A853"><h3>⏱️ Hız</h3><p>Reklamın zarar ettiğini anlamak 3-7 g&uuml;n. G&uuml;nl&uuml;k 500-2000 TL boşa gider.</p></div>
-      <div class="card" style="border-left:3px solid #E85D4A"><h3>💰 Maliyet</h3><p>Ajansa giden fatura 8-25 bin TL/ay. KOBİ i&ccedil;in katlanılabilir değil.</p></div>
+      <div class="card" style="border-left:3px solid #FF6B5C"><h3>Karmaşıklık</h3><p>Meta + Google Ads aray&uuml;zleri &ccedil;ok karışık. Esnaf "boost post"tan ileri gidemiyor.</p></div>
+      <div class="card" style="border-left:3px solid #F59E0B"><h3>Hız</h3><p>Reklamın zarar ettiğini anlamak 3-7 g&uuml;n. G&uuml;nl&uuml;k 500-2000 TL boşa gider.</p></div>
+      <div class="card" style="border-left:3px solid #FF6B5C"><h3>Maliyet</h3><p>Ajansa giden fatura 8-25 bin TL/ay. KOBİ i&ccedil;in katlanılabilir değil.</p></div>
     </div>
-    <div style="margin-top:.6rem;padding:.8rem 1rem;border-radius:.65rem;background:linear-gradient(135deg,rgba(232,93,74,.06),rgba(232,93,74,.01));border:1px solid rgba(232,93,74,.12);max-width:620px">
-      <div style="display:flex;gap:.7rem"><div style="font-size:1.2rem;flex-shrink:0">💡</div><div><h3 style="font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:700;color:#E85D4A">Leylek &Ccedil;&ouml;z&uuml;m&uuml;</h3><p style="font-size:.68rem;color:rgba(255,255,255,.5);line-height:1.4;margin-top:.05rem">3 ayrı AI ajanı. 7/24 uyanık, hata yapmaz, ajansın 10'da 1'i maliyet. URL gir, b&uuml;t&ccedil;e belirle, gerisi otonom.</p></div></div>
+    <div style="margin-top:.6rem;padding:.8rem 1rem;border-radius:.65rem;background:linear-gradient(135deg,rgba(255,107,92,.06),rgba(255,107,92,.01));border:1px solid rgba(255,107,92,.12);max-width:620px">
+      <div style="display:flex;gap:.7rem"><div><h3 style="font-family:'Inter',sans-serif;font-size:.8rem;font-weight:700;color:#FF6B5C">Leylek &Ccedil;&ouml;z&uuml;m&uuml;</h3><p style="font-size:.68rem;color:rgba(255,255,255,.5);line-height:1.4;margin-top:.05rem">3 ayrı AI ajanı. 7/24 uyanık, hata yapmaz, ajansın 10'da 1'i maliyet. URL gir, b&uuml;t&ccedil;e belirle, gerisi otonom.</p></div></div>
     </div>
   </div>
 </div>
@@ -366,13 +666,13 @@
     <h2>M&uuml;şteriyi <span class="hl">3 Ajan</span> Getirir</h2>
     <p class="lead">Her ajan tek bir işte uzman. Birlikte kampanyaları u&ccedil;tan uca y&ouml;netirler.</p>
     <div class="steps">
-      <div class="st"><div class="no">01</div><h4>📝 Content Agent</h4><p>URL analizi &rarr; Gemini ile 3 varyant (Agresif / Hikaye / Teknik) + persona</p></div>
-      <div class="st"><div class="no">02</div><h4>📤 Publisher Agent</h4><p>Port + Adapter. Google Ads v17 / Meta v21 API. Tek kod, iki platform.</p></div>
-      <div class="st"><div class="no">03</div><h4>⚡ Optimizer Agent</h4><p>6 saatte bir karar: PAUSE / KEEP / REALLOCATE. T&uuml;rk&ccedil;e gerek&ccedil;e.</p></div>
+      <div class="st"><div class="no">01</div><h4>Content Agent</h4><p>URL analizi &rarr; Gemini ile 3 varyant (Agresif / Hikaye / Teknik) + persona</p></div>
+      <div class="st"><div class="no">02</div><h4>Publisher Agent</h4><p>Port + Adapter. Google Ads v17 / Meta v21 API. Tek kod, iki platform.</p></div>
+      <div class="st"><div class="no">03</div><h4>Optimizer Agent</h4><p>6 saatte bir karar: PAUSE / KEEP / REALLOCATE. T&uuml;rk&ccedil;e gerek&ccedil;e.</p></div>
     </div>
     <div class="g2" style="margin-top:.5rem">
-      <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><h3>📈 Analytics Worker</h3><p>15 dk'da bir metrik &ccedil;eker, D1'e yazar. Campaign DO atomic state.</p></div>
-      <div class="card"><div class="ci g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg></div><h3>🤝 Co-Pilot</h3><p>Ajan &ouml;nerir, sen onayla. E-posta veya uygulama &uuml;zerinden.</p></div>
+      <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><h3>Analytics Worker</h3><p>15 dk'da bir metrik &ccedil;eker, D1'e yazar. Campaign DO atomic state.</p></div>
+      <div class="card"><div class="ci g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg></div><h3>Co-Pilot</h3><p>Ajan &ouml;nerir, sen onayla. E-posta veya uygulama &uuml;zerinden.</p></div>
     </div>
   </div>
 </div>
@@ -387,11 +687,11 @@
     <p class="lead" style="margin:0 auto">Ger&ccedil;ek API'ler hackathon s&uuml;resine sığmıyor. &Ccedil;&ouml;z&uuml;m: <strong>birebir sandbox</strong>.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;max-width:660px;margin:.8rem auto 0;text-align:left">
       <div style="display:flex;flex-direction:column;gap:.4rem">
-        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(232,93,74,.03);border-left:3px solid #E85D4A"><h4 style="font-family:'Outfit',sans-serif;font-size:.68rem;font-weight:700">⏳ Google Ads Standard Access</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Developer token 1-2 hafta. Test anında ama ger&ccedil;ek veri i&ccedil;in Standard gerekli.</p></div>
-        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(212,168,83,.03);border-left:3px solid #D4A853"><h4 style="font-family:'Outfit',sans-serif;font-size:.68rem;font-weight:700">⏳ Meta App Review</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Marketing API izinleri 2-4 hafta. Hackathon'a sığmaz.</p></div>
-        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(232,93,74,.03);border-left:3px solid #E85D4A"><h4 style="font-family:'Outfit',sans-serif;font-size:.68rem;font-weight:700">🚫 Ban Riski</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Ger&ccedil;ek hesaplarla test = ban. Demo g&uuml;venli olmalı.</p></div>
+        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(255,107,92,.03);border-left:3px solid #FF6B5C"><h4 style="font-family:'Inter',sans-serif;font-size:.68rem;font-weight:700">Google Ads Standard Access</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Developer token 1-2 hafta. Test anında ama ger&ccedil;ek veri i&ccedil;in Standard gerekli.</p></div>
+        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(245,158,11,.03);border-left:3px solid #F59E0B"><h4 style="font-family:'Inter',sans-serif;font-size:.68rem;font-weight:700">Meta App Review</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Marketing API izinleri 2-4 hafta. Hackathon'a sığmaz.</p></div>
+        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(255,107,92,.03);border-left:3px solid #FF6B5C"><h4 style="font-family:'Inter',sans-serif;font-size:.68rem;font-weight:700">Ban Riski</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Ger&ccedil;ek hesaplarla test = ban. Demo g&uuml;venli olmalı.</p></div>
       </div>
-      <div class="sbox"><div style="font-size:1.6rem;margin-bottom:.3rem">🎯</div><h3>Birebir Sandbox</h3><p>Aynı response, aynı hata kodları, aynı auth. Ger&ccedil;ek Cloudflare Worker. Prod'a geçiş: tek env.</p><div style="margin-top:.35rem;display:flex;gap:.2rem;flex-wrap:wrap"><span class="tag">✅ Campaign CRUD</span><span class="tag">✅ Budget</span><span class="tag">✅ Metrics</span><span class="tag">✅ Error Codes</span></div></div>
+      <div class="sbox"><h3>Birebir Sandbox</h3><p>Aynı response, aynı hata kodları, aynı auth. Ger&ccedil;ek Cloudflare Worker. Prod'a geçiş: tek env.</p><div style="margin-top:.35rem;display:flex;gap:.2rem;flex-wrap:wrap"><span class="tag">Campaign CRUD</span><span class="tag">Budget</span><span class="tag">Metrics</span><span class="tag">Error Codes</span></div></div>
     </div>
   </div>
 </div>
@@ -428,8 +728,8 @@
       <div class="card"><div class="ci g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Google OAuth</h3><p>+ Magic Link. JWT cookie.</p></div>
       <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><h3>CI/CD</h3><p>GitHub Actions otomasyon.</p></div>
     </div>
-    <div style="margin-top:.5rem;padding:.7rem .9rem;border-radius:.6rem;background:linear-gradient(135deg,rgba(212,168,83,.05),transparent);border:1px solid rgba(212,168,83,.07);max-width:640px;margin-left:auto;margin-right:auto">
-      <div style="display:flex;gap:.6rem"><div style="font-size:1.1rem;flex-shrink:0">🔄</div><div><h3 style="font-family:'Outfit',sans-serif;font-size:.72rem;font-weight:700">Analysis Pipeline</h3><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.35;margin-top:.05rem"><strong>URL</strong> &rarr; Content Agent &rarr; 3 varyant &rarr; Publisher Agent &rarr; Analytics Worker (15dk) &rarr; Optimizer Agent (6 saat) &rarr; <strong>PAUSE / KEEP / REALLOCATE</strong>. T&uuml;rk&ccedil;e gerek&ccedil;e.</p></div></div>
+    <div style="margin-top:.5rem;padding:.7rem .9rem;border-radius:.6rem;background:linear-gradient(135deg,rgba(245,158,11,.05),transparent);border:1px solid rgba(245,158,11,.07);max-width:640px;margin-left:auto;margin-right:auto">
+      <div style="display:flex;gap:.6rem"><div><h3 style="font-family:'Inter',sans-serif;font-size:.72rem;font-weight:700">Analysis Pipeline</h3><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.35;margin-top:.05rem"><strong>URL</strong> &rarr; Content Agent &rarr; 3 varyant &rarr; Publisher Agent &rarr; Analytics Worker (15dk) &rarr; Optimizer Agent (6 saat) &rarr; <strong>PAUSE / KEEP / REALLOCATE</strong>. T&uuml;rk&ccedil;e gerek&ccedil;e.</p></div></div>
     </div>
   </div>
 </div>
@@ -443,10 +743,10 @@
     <h2>Deterministic <span class="hl">Demo Seed</span></h2>
     <p class="lead" style="margin:0 auto">Her demo aynı sonucu &uuml;retir. Mulberry32 PRNG ile byte-stable.</p>
     <div class="dtable">
-      <div class="dc"><h3>Demo &Uuml;r&uuml;n</h3><p style="text-align:center;margin-top:.05rem">"Demlik Pro &mdash; Akıllı &Ccedil;ay Cihazı"</p><div style="margin-top:.3rem;display:grid;gap:.2rem;font-size:.55rem"><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 1 Agresif</span><span style="color:#E85D4A">ZARARDA 183 CPA</span></div><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 2 Hikaye</span><span style="color:#4ADE80">KARLI 15 CPA</span></div><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 3 Teknik</span><span style="color:#D4A853">MARJİNAL 40 CPA</span></div></div></div>
+      <div class="dc"><h3>Demo &Uuml;r&uuml;n</h3><p style="text-align:center;margin-top:.05rem">"Demlik Pro &mdash; Akıllı &Ccedil;ay Cihazı"</p><div style="margin-top:.3rem;display:grid;gap:.2rem;font-size:.55rem"><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 1 Agresif</span><span style="color:#FF6B5C">ZARARDA 183 CPA</span></div><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 2 Hikaye</span><span style="color:#16A34A">KARLI 15 CPA</span></div><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 3 Teknik</span><span style="color:#F59E0B">MARJİNAL 40 CPA</span></div></div></div>
       <div class="dc"><h3>60 Saniyelik Demo</h3><div style="margin-top:.3rem;display:flex;flex-direction:column;gap:.2rem;font-size:.54rem"><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">0-10s</span><span>Login &rarr; Dashboard</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">10-20s</span><span>"Şimdi Optimize Et"</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">20-45s</span><span>Gemini reasoning canlı</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">45-55s</span><span>Publisher Agent aksiyon</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">55-60s</span><span>Ad 1 PAUSED</span></div></div></div>
     </div>
-    <div style="margin-top:.4rem;padding:.6rem .9rem;border-radius:.55rem;background:linear-gradient(135deg,rgba(212,168,83,.04),transparent);border:1px solid rgba(212,168,83,.06);max-width:640px;margin-left:auto;margin-right:auto"><p style="font-size:.58rem;color:rgba(255,255,255,.5);line-height:1.35"><strong style="color:#D4A853">✨ Ger&ccedil;ek Zamanlı:</strong> Gemini reasoning + DO atomic + agent_logs persistence. Tek fark: external HTTP vs internal state. Flip 0 kod.</p></div>
+    <div style="margin-top:.4rem;padding:.6rem .9rem;border-radius:.55rem;background:linear-gradient(135deg,rgba(245,158,11,.04),transparent);border:1px solid rgba(245,158,11,.06);max-width:640px;margin-left:auto;margin-right:auto"><p style="font-size:.58rem;color:rgba(255,255,255,.5);line-height:1.35"><strong style="color:#F59E0B">Ger&ccedil;ek Zamanlı:</strong> Gemini reasoning + DO atomic + agent_logs persistence. Tek fark: external HTTP vs internal state. Flip 0 kod.</p></div>
   </div>
 </div>
 
@@ -466,12 +766,12 @@
       <span class="aa">⇄</span><span class="ae i">google-ads-mock</span><span class="ae i">meta-ads-mock</span>
     </div>
     <div class="wg" style="margin:.5rem auto 0">
-      <div class="wc"><h4>🚪 Gateway</h4><p>API giriş, auth.</p><div class="tg">Hono v4</div></div>
-      <div class="wc"><h4>📝 Content Agent</h4><p>URL &rarr; 3 varyant</p><div class="tg">Gemini 2.5 Flash</div></div>
-      <div class="wc"><h4>⚡ Optimizer Agent</h4><p>6s karar d&ouml;ng&uuml;s&uuml;</p><div class="tg">Durable Object</div></div>
-      <div class="wc"><h4>📤 Publisher Agent</h4><p>Factory pattern</p><div class="tg">Port + Adapter</div></div>
-      <div class="wc"><h4>📈 Analytics Worker</h4><p>15dk cron</p><div class="tg">Cron Trigger</div></div>
-      <div class="wc"><h4>🧪 Mock Workers</h4><p>Google/Meta em&uuml;lasyonu</p><div class="tg">KV State</div></div>
+      <div class="wc"><h4>Gateway</h4><p>API giriş, auth.</p><div class="tg">Hono v4</div></div>
+      <div class="wc"><h4>Content Agent</h4><p>URL &rarr; 3 varyant</p><div class="tg">Gemini 2.5 Flash</div></div>
+      <div class="wc"><h4>Optimizer Agent</h4><p>6s karar d&ouml;ng&uuml;s&uuml;</p><div class="tg">Durable Object</div></div>
+      <div class="wc"><h4>Publisher Agent</h4><p>Factory pattern</p><div class="tg">Port + Adapter</div></div>
+      <div class="wc"><h4>Analytics Worker</h4><p>15dk cron</p><div class="tg">Cron Trigger</div></div>
+      <div class="wc"><h4>Mock Workers</h4><p>Google/Meta em&uuml;lasyonu</p><div class="tg">KV State</div></div>
     </div>
   </div>
 </div>
@@ -497,7 +797,7 @@
   <div class="slide-bg"><div class="o1"></div><div class="o2"></div><div class="gp"></div></div>
   <div class="sn">09 / Kapanış</div>
   <div class="cw c">
-    <div style="font-size:3rem;margin-bottom:.6rem">🕊️</div>
+    <div class="closing-mark"><img src="../brand/leylek-mark.png" alt=""></div>
     <h2 style="font-size:clamp(1.6rem,3.5vw,2.6rem)">Siz arkanıza yaslanın,<br><span class="hl">m&uuml;şteriyi Leylek getirir</span></h2>
     <p class="lead" style="margin:.6rem auto 0;max-width:400px">7/24 uyanık AI ajanlarınız. Siz uyurken satış yapar, zararı keser.</p>
     <div class="accent" style="margin:1rem auto"></div>
