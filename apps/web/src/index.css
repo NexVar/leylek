@@ -76,6 +76,10 @@
     height: 100%;
   }
 
+  html {
+    font-size: 20px;
+  }
+
   body {
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01", "ss03";
