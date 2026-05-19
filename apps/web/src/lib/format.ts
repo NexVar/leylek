@@ -42,6 +42,18 @@ export function compact(value: number): string {
   return COMPACT_FORMATTER.format(value);
 }
 
+export function prettyTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const last = u.pathname.split('/').filter(Boolean).pop() ?? u.hostname;
+    return decodeURIComponent(last.replace(/[-_]/g, ' ')).replace(/\b\w/g, (m) =>
+      m.toLocaleUpperCase('tr-TR'),
+    );
+  } catch {
+    return url;
+  }
+}
+
 export function hostnameOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '');

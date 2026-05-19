@@ -8,7 +8,7 @@ import { Card } from '../components/Card';
 import { NewCampaignModal } from '../components/NewCampaignModal';
 import { Pill } from '../components/Pill';
 import { SpinnerInline } from '../components/SpinnerInline';
-import { hostnameOf, kurusToTry, modeLabel } from '../lib/format';
+import { hostnameOf, kurusToTry, modeLabel, prettyTitle } from '../lib/format';
 import { useAuthStore } from '../store/auth';
 
 /**
@@ -135,18 +135,6 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
       </Card>
     </Link>
   );
-}
-
-function prettyTitle(url: string): string {
-  try {
-    const u = new URL(url);
-    const last = u.pathname.split('/').filter(Boolean).pop() ?? u.hostname;
-    return decodeURIComponent(last.replace(/[-_]/g, ' ')).replace(/\b\w/g, (m) =>
-      m.toLocaleUpperCase('tr-TR'),
-    );
-  } catch {
-    return url;
-  }
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {

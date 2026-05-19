@@ -26,6 +26,7 @@ import {
   hostnameOf,
   kurusToTry,
   modeLabel,
+  prettyTitle,
   strategyLabel,
 } from '../lib/format';
 
@@ -302,7 +303,7 @@ function CampaignHeader({
             <span className="font-mono text-[11px] text-ink-subtle">{hostnameOf(productUrl)}</span>
           </div>
           <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-ink sm:text-h1">
-            Demlik Pro — Akıllı Çay Demleme Cihazı
+            {prettyTitle(productUrl)}
           </h1>
           <a
             href={productUrl}
