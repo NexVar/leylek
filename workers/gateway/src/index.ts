@@ -82,9 +82,6 @@ app.get('/api/creatives/:key', async (c) => {
   if (!key || key.length === 0 || key.includes('/') || key.includes('..')) {
     return c.json({ error: 'invalid_key' }, 400);
   }
-  if (!c.env.CREATIVES) {
-    return c.json({ error: 'r2_not_configured' }, 501);
-  }
   const object = await c.env.CREATIVES.get(key);
   if (!object) {
     return c.json({ error: 'not_found', key }, 404);

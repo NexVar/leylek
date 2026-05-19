@@ -65,11 +65,7 @@ app.post('/internal/analyze', async (c) => {
     // so total wall-clock is dominated by the slowest of the three.
     const imageR2Keys: (string | null)[] = await Promise.all(
       result.output.variants.map(async (v) => {
-        const generated = await generateAndStoreAdImage(
-          c.env.AI,
-          c.env.CREATIVES,
-          v.imagePrompt,
-        );
+        const generated = await generateAndStoreAdImage(c.env.AI, c.env.CREATIVES, v.imagePrompt);
         return generated?.r2Key ?? null;
       }),
     );

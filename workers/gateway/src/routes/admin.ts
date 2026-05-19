@@ -115,9 +115,6 @@ adminRoutes.get('/kv/value', async (c) => {
  * content-safety reject) individually.
  */
 adminRoutes.post('/backfill-images', async (c) => {
-  if (!c.env.CREATIVES) {
-    return c.json({ error: 'r2_not_configured' }, 501);
-  }
   const db = drizzle(c.env.DB, { schema });
 
   const missing = await db

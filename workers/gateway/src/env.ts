@@ -17,9 +17,9 @@ export interface Env {
   // KV
   KV: KVNamespace;
 
-  // R2 (optional) — AI-generated ad creatives. Read-only access from gateway.
-  // Proxied at /api/creatives/:key when the binding is present.
-  CREATIVES?: R2Bucket;
+  // R2 — AI-generated ad creatives. Read-only access from gateway
+  // (content-agent does the writes). Proxied at /api/creatives/:key.
+  CREATIVES: R2Bucket;
 
   // Service bindings (populated as workers deploy)
   CONTENT_AGENT: Fetcher;
