@@ -1,5 +1,5 @@
 /**
- * content-agent Worker — Gemini 2.5 Pro powered ad creative generation.
+ * content-agent Worker — Gemini 3.1 Flash Lite powered ad creative generation.
  *
  * Input: product URL + daily budget (kurus).
  * Output: audience + 3 ad variants conforming to ContentAgentOutput.
@@ -19,7 +19,7 @@ import { scrapeProductUrl } from './scrape';
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/api/health', (c) =>
-  c.json({ status: 'ok', service: 'content-agent', model: 'gemini-2.5-flash' }),
+  c.json({ status: 'ok', service: 'content-agent', model: 'gemini-3.1-flash-lite' }),
 );
 
 const AnalyzeRequest = z.object({
@@ -79,6 +79,19 @@ app.post('/internal/analyze', async (c) => {
   } catch (err) {
     if (err instanceof ContentAgentError) {
       console.error('[content-agent] analyze failed:', err.diagnostic);
+      // Surface 429 / quota errors with a distinct error code + 429 status so
+      // the gateway can map them to a friendly "rate limited" toast instead of
+      // a generic 502 that reads like a system crash.
+      if (err.diagnostic.stage === 'rate_limited') {
+        return c.json(
+          {
+            error: 'rate_limited',
+            detail: err.diagnostic.message,
+            sourceMode: scrape.mode,
+          },
+          429,
+        );
+      }
       return c.json(
         {
           error: 'content_agent_failed',

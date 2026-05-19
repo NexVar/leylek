@@ -53,6 +53,12 @@ campaignRoutes.post('/', async (c) => {
   if (!analyzeRes.ok) {
     const detail = await analyzeRes.text().catch(() => '');
     console.error('[gateway/campaigns] content-agent failed', analyzeRes.status, detail);
+    // content-agent uses 429 specifically for Gemini rate-limit responses.
+    // Surface a distinct error so the modal can show a "AI rate limited" toast
+    // instead of a generic crash message.
+    if (analyzeRes.status === 429) {
+      return c.json({ error: 'rate_limited', upstream: analyzeRes.status }, 429);
+    }
     return c.json({ error: 'content_agent_failed', upstream: analyzeRes.status }, 502);
   }
   const analyzeJson = (await analyzeRes.json()) as {
@@ -68,6 +74,9 @@ campaignRoutes.post('/', async (c) => {
   const { variants, audience } = parsedOutput.data;
   const geminiRequestId = analyzeJson.geminiRequestId;
   const imageR2Keys = analyzeJson.imageR2Keys ?? variants.map(() => null);
+  // Forward to the client so the create-modal can show a "page couldn't be
+  // read, AI inferred from URL" notice when the scrape fell back.
+  const sourceMode = analyzeJson.sourceMode ?? 'fetched';
 
   // 2. Persist campaign + 3 ad rows. We accept that this multi-statement
   //    write isn't a real D1 transaction (see file header).
@@ -116,7 +125,7 @@ campaignRoutes.post('/', async (c) => {
       agentName: 'content',
       actionTaken: 'CREATED_AD',
       targetRef: String(ad.id),
-      reason: `İçerik üretildi (${ad.strategyType}) — Gemini 2.5 Pro`,
+      reason: `İçerik üretildi (${ad.strategyType}) — Gemini 3.1 Flash Lite`,
       confidence: 1.0,
       geminiRequestId: geminiRequestId ?? null,
     })),
@@ -168,7 +177,9 @@ campaignRoutes.post('/', async (c) => {
   // `audience` is content-agent's reasoning artefact — not persisted to D1
   // but echoed back so the create modal can show what Gemini decided about
   // demographic / interests / painPoints during the reveal animation.
-  return c.json({ campaign: finalCampaign, ads: finalAds, audience }, 201);
+  // `sourceMode` lets the modal show a "page couldn't be read" notice on
+  // fallback so the user understands why the ads may be slug-derived.
+  return c.json({ campaign: finalCampaign, ads: finalAds, audience, sourceMode }, 201);
 });
 
 // ---------------------------------------------------------------------------

@@ -117,7 +117,7 @@ export function CampaignDetailPage() {
             const res = await optimizeMutation.mutateAsync();
             setToast({ ...res, campaignMode: res.campaignMode ?? campaign.mode });
           } catch (err) {
-            const msg = err instanceof ApiError ? err.message : 'Optimizasyon başarısız oldu.';
+            const msg = humanizeOptimizeError(err);
             // Render a one-off danger pill toast via setToast with a fake decision shape.
             setToast({
               decision: {
@@ -235,6 +235,26 @@ export function CampaignDetailPage() {
       />
     </div>
   );
+}
+
+/**
+ * Translate optimizer error codes into friendly Turkish prose so the toast
+ * reads as a real reason instead of leaking an internal `optimizer_failed`
+ * identifier — which looks to the user like the code itself is broken.
+ */
+function humanizeOptimizeError(err: unknown): string {
+  if (!(err instanceof ApiError)) return 'Optimizasyon başarısız oldu. Birazdan tekrar dene.';
+  const code = err.message;
+  if (code === 'rate_limited') {
+    return 'AI servisi şu an çok yoğun (rate limited). Yaklaşık bir dakika sonra tekrar dene — sistemde hata yok.';
+  }
+  if (code === 'optimizer_failed' || code === 'no_decision') {
+    return 'AI optimizasyon kararı veremedi — geçici bir Gemini servis hatası. Birazdan tekrar dene.';
+  }
+  if (code === 'campaign_not_found' || code === 'forbidden') {
+    return 'Bu kampanyaya şu anda optimizasyon yetkin yok.';
+  }
+  return err.message || 'Optimizasyon başarısız oldu. Birazdan tekrar dene.';
 }
 
 function BackLink() {

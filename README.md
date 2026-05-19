@@ -42,7 +42,7 @@ Tamamen serverless — hiçbir sunucu kiralanmadı.
 | Per-campaign state | Cloudflare Durable Objects (her kampanya kendi "yaşayan ajanı") |
 | Veritabanı | Cloudflare D1 (serverless SQLite) + Drizzle ORM |
 | Cache & session | Cloudflare KV |
-| AI | Google Gemini 2.5 Flash (`responseSchema` ile structured output) |
+| AI | Google Gemini 3.1 Flash Lite (`responseSchema` ile structured output) |
 | Reklam API'leri | Google Ads REST v17 + Meta Marketing API v21.0 — sandbox'ta `leylek-google-ads-mock` / `leylek-meta-ads-mock` Worker'ları, prod'da `googleads.googleapis.com` / `graph.facebook.com` (tek code path, `*_BASE_URL` env switch) |
 | Auth | Google OAuth 2.0 (ana) + Magic-link via Resend (yedek) |
 | CI/CD | GitHub Actions — typecheck + lint + build + 7-worker deploy + Pages deploy on push to main |
@@ -71,8 +71,8 @@ React (Pages) ──── /api/* ────► gateway
 ```
 
 - **gateway** — API entry, Google OAuth + magic-link (Resend) + JWT, AES helpers, frontend façade.
-- **content-agent** — Gemini Flash, ürün URL'sini analiz, persona çıkarımı, 3 reklam varyantı (Agresif / Hikaye / Teknik).
-- **optimizer-agent** — Gemini Flash + Campaign Durable Object. Cron her 6 saat veya `/optimize-now`; pause/keep/realloc kararı + Türkçe gerekçe. Co-Pilot modunda öneri yazar (D1 `notifications` + e-posta), Otopilot'ta direkt uygular.
+- **content-agent** — Gemini 3.1 Flash Lite, ürün URL'sini analiz, persona çıkarımı, 3 reklam varyantı (Agresif / Hikaye / Teknik).
+- **optimizer-agent** — Gemini 3.1 Flash Lite + Campaign Durable Object. Cron her 6 saat veya `/optimize-now`; pause/keep/realloc kararı + Türkçe gerekçe. Co-Pilot modunda öneri yazar (D1 `notifications` + e-posta), Otopilot'ta direkt uygular.
 - **publisher-agent** — `AdPlatformClient` factory (PRD §10 port + adapter). Provider'a göre `RealGoogleAdsClient` veya `RealMetaAdsClient`; her ikisi de `baseUrl` env'i ile sandbox/prod'a yönlenir.
 - **analytics-worker** — 15 dakikalık cron + `/internal/refresh/:campaignId`. Platform'dan (mock veya gerçek) fresh metric ingestion + D1 `metric_snapshots` aggregation → `ads.spend_kurus` cache.
 - **google-ads-mock + meta-ads-mock** — Google Ads REST v17 + Meta Marketing v21.0 subset'lerini emüle eder. State paylaşılan KV'de `gads:*` / `meta:*` prefix'leri ile. Sandbox demo bunlara konuşur.

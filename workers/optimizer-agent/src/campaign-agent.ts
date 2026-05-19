@@ -5,7 +5,7 @@
  *
  *   - Loads campaign + ads from D1
  *   - Aggregates last-48h metrics from metric_snapshots
- *   - Calls Gemini 2.5 Pro (structured output -> OptimizerDecision)
+ *   - Calls Gemini 3.1 Flash Lite (structured output -> OptimizerDecision)
  *   - Delegates atomic actions to publisher-agent via Service Binding
  *   - Persists agent_logs row + rolling decision history
  *
@@ -42,11 +42,22 @@ interface CampaignState {
 
 const HISTORY_LIMIT = 20;
 const METRIC_WINDOW_HOURS = 48;
-// Back on gemini-2.5-flash. Gemma 4 26B's free-tier latency was unworkable
-// (60-120s end-to-end with intermittent 502s) even though daily quota was
-// virtually untouched. Flash gives us ~1s decisions at the cost of a tighter
-// daily ceiling — acceptable for the demo path.
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// Gemini 3.1 Flash Lite — 15 RPM / 500 RPD on free tier, ~1-3s steady-state.
+// Same model the content-agent uses; cheaper than 2.5 Pro and far more
+// reliable than Gemma 4 on free tier today.
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+// Generous ceiling — most calls are 1-3s but the worst tail can be slow.
+const GEMINI_TIMEOUT_MS = 180_000;
+
+function isRateLimitError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes('429') ||
+    m.includes('resource_exhausted') ||
+    m.includes('quota') ||
+    m.includes('rate limit')
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Aggregated ad metrics passed into the prompt
@@ -224,19 +235,30 @@ export class CampaignAgent extends DurableObject<Env> {
     );
 
     if (!decision) {
-      // 5b. Persist failure into agent_logs and bail.
+      // 5b. Persist failure into agent_logs with Turkish prose (the agent log
+      //     feed renders `reason` verbatim — we don't want raw Gemini SDK
+      //     errors / 429 JSON dumps leaking to the user there).
+      const rateLimited = !!geminiError && isRateLimitError(geminiError);
+      const friendlyReason = rateLimited
+        ? 'AI servisi şu an çok yoğun (rate limited). Optimizasyon kararı verilemedi; bir dakika sonra otomatik yeniden denenecek.'
+        : 'AI optimizasyon kararı üretemedi — geçici servis hatası. Bir sonraki cron tetiklemesinde tekrar denenecek.';
       await db.insert(schema.agentLogs).values({
         campaignId,
         agentName: 'optimizer',
         actionTaken: 'OPTIMIZER_FAILED',
         targetRef: null,
-        reason: geminiError ?? 'Gemini structured output failed twice',
+        reason: friendlyReason,
         confidence: null,
         geminiRequestId: geminiRequestId ?? null,
       });
+      // 429 for rate limits, 502 for generic Gemini failures — frontend keys
+      // off the error code to pick a "rate limited" vs "generic crash" toast.
       return Response.json(
-        { error: 'optimizer failed', detail: geminiError ?? 'parse failure' },
-        { status: 502 },
+        {
+          error: rateLimited ? 'rate_limited' : 'optimizer_failed',
+          detail: friendlyReason,
+        },
+        { status: rateLimited ? 429 : 502 },
       );
     }
 
@@ -355,36 +377,44 @@ export class CampaignAgent extends DurableObject<Env> {
     let lastError: string | null = null;
     let lastRequestId: string | null = null;
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODEL,
-          contents: OPTIMIZER_AGENT_USER(campaignId, METRIC_WINDOW_HOURS, metricsJson),
-          config: {
-            systemInstruction: OPTIMIZER_AGENT_SYSTEM,
-            temperature: 0.2,
-            responseMimeType: 'application/json',
-            responseSchema: OPTIMIZER_RESPONSE_SCHEMA,
-          },
-        });
+    // Single attempt with an explicit 180s ceiling. responseSchema already
+    // constrains the model enough that a second pass rarely changes the
+    // outcome and risks tripping Cloudflare's edge timeout.
+    const started = Date.now();
+    try {
+      const generation = ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: OPTIMIZER_AGENT_USER(campaignId, METRIC_WINDOW_HOURS, metricsJson),
+        config: {
+          systemInstruction: OPTIMIZER_AGENT_SYSTEM,
+          temperature: 0.2,
+          responseMimeType: 'application/json',
+          responseSchema: OPTIMIZER_RESPONSE_SCHEMA,
+        },
+      });
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error(`gemini_timeout after ${GEMINI_TIMEOUT_MS / 1000}s`)),
+          GEMINI_TIMEOUT_MS,
+        );
+      });
+      const response = await Promise.race([generation, timeout]);
 
-        lastRequestId = response.responseId ?? null;
-        const text = response.text;
-        if (!text) {
-          lastError = 'Gemini returned empty text';
-          continue;
-        }
-
+      lastRequestId = response.responseId ?? null;
+      const text = response.text;
+      if (text) {
         const parsed = JSON.parse(text);
         const decision = OptimizerDecision.parse(parsed);
+        console.log(`[campaign-agent] gemini ok in ${Date.now() - started}ms`);
         return { decision, geminiRequestId: lastRequestId, geminiError: null };
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : String(err);
-        console.warn(
-          `[campaign-agent] Gemini attempt ${attempt + 1}/2 failed for campaign ${campaignId}:`,
-          lastError,
-        );
       }
+      lastError = 'empty text';
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[campaign-agent] gemini failed after ${Date.now() - started}ms for campaign ${campaignId}:`,
+        lastError.slice(0, 200),
+      );
     }
 
     return { decision: null, geminiRequestId: lastRequestId, geminiError: lastError };

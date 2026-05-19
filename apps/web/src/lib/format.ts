@@ -89,13 +89,28 @@ export function agentLabel(agent: 'content' | 'optimizer' | 'publisher'): string
 }
 
 export function actionLabel(action: string): string {
+  // Two parallel naming schemes coexist in agent_logs:
+  //   - publisher-agent persists past-tense AgentAction values (PAUSED_AD,
+  //     REALLOCATED_BUDGET) for actions it actually applied to the platform.
+  //   - optimizer-agent persists Gemini's imperative verbs (PAUSE_AD,
+  //     REALLOCATE_BUDGET) for the decision it logged. See campaign-agent.ts
+  //     §6 — `loggedAction = decision.action` is intentional.
+  // Map both forms to the same Turkish prose so neither leaks raw English.
   const map: Record<string, string> = {
     CREATED_AD: 'reklam oluşturdu',
     PAUSED_AD: 'reklamı durdurdu',
+    PAUSE_AD: 'reklamı durdurdu',
     RESUMED_AD: 'reklamı yeniden başlattı',
+    RESUME_AD: 'reklamı yeniden başlattı',
     REALLOCATED_BUDGET: 'bütçeyi kaydırdı',
+    REALLOCATE_BUDGET: 'bütçeyi kaydırdı',
     PROPOSED_PAUSE: 'durdurma önerdi',
     PROPOSED_BUDGET_SHIFT: 'bütçe kaydırma önerdi',
+    KEEP: 'durumu korudu',
+    OPTIMIZER_FAILED: 'optimizasyon yapılamadı',
+    MODE_CHANGED: 'modu değiştirdi',
+    COPILOT_APPROVED: 'öneriyi onayladı',
+    COPILOT_REJECTED: 'öneriyi reddetti',
   };
   return map[action] ?? action.toLowerCase().replace(/_/g, ' ');
 }

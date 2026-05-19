@@ -1,5 +1,5 @@
 /**
- * optimizer-agent Worker — Gemini 2.5 Pro powered budget decision agent.
+ * optimizer-agent Worker — Gemini 3.1 Flash Lite powered budget decision agent.
  *
  * Two entry points (PRD §5 / §7):
  *   - cron (every 6h prod): iterate active campaigns, ping each Campaign DO
@@ -22,7 +22,7 @@ export { CampaignAgent };
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/api/health', (c) =>
-  c.json({ status: 'ok', service: 'optimizer-agent', model: 'gemini-2.5-flash' }),
+  c.json({ status: 'ok', service: 'optimizer-agent', model: 'gemini-3.1-flash-lite' }),
 );
 
 app.post('/internal/optimize/:campaignId', async (c) => {

@@ -25,10 +25,16 @@ export async function scrapeProductUrl(productUrl: string): Promise<ScrapeResult
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          // A boring desktop UA — many storefronts 403 unknown bots.
-          'user-agent': 'Mozilla/5.0 (compatible; LeylekContentAgent/1.0; +https://leylek.app)',
-          accept: 'text/html,application/xhtml+xml',
+          // Plain Chrome desktop UA — anything that hints at a bot (including
+          // self-identifying tokens like "LeylekContentAgent") gets 403'd by
+          // Akamai/Cloudflare bot detection on big TR storefronts.
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+          accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           'accept-language': 'tr-TR,tr;q=0.9,en;q=0.5',
+          'accept-encoding': 'gzip, deflate, br',
+          'cache-control': 'no-cache',
         },
       });
       if (!res.ok) {

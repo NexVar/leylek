@@ -20,6 +20,12 @@ interface CampaignCreationProgressProps {
   stage: CreationStage;
   /** True if the mutation has resolved. Drives the transition from `publish` → `done`. */
   mutationReady: boolean;
+  /**
+   * 'fallback' when the product page couldn't be scraped (403 / timeout /
+   * empty). DoneReveal surfaces a soft warning so the user understands why
+   * the ads may look generic rather than blaming the code.
+   */
+  sourceMode?: 'fetched' | 'fallback';
 }
 
 const STAGE_ORDER: CreationStage[] = [
@@ -93,6 +99,7 @@ export function CampaignCreationProgress({
   ads,
   stage,
   mutationReady,
+  sourceMode,
 }: CampaignCreationProgressProps) {
   const sorted = useMemo(
     () =>
@@ -149,6 +156,7 @@ export function CampaignCreationProgress({
           dailyBudgetTry={dailyBudgetTry}
           audience={audience}
           ads={sorted}
+          sourceMode={sourceMode}
         />
       ) : null}
     </div>
@@ -433,28 +441,39 @@ function DoneReveal({
   dailyBudgetTry,
   audience,
   ads,
+  sourceMode,
 }: {
   productUrl: string;
   dailyBudgetTry: number;
   audience: { demographic: string; interests: string[]; painPoints: string[] } | null;
   ads: Ad[];
+  sourceMode?: 'fetched' | 'fallback';
 }) {
   return (
-    <div className="rounded-md border border-[color-mix(in_srgb,var(--color-success)_40%,transparent)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)] px-4 py-3 flex flex-col gap-2 animate-fade-up">
-      <div className="flex items-center gap-2">
-        <Pill tone="success" dot>
-          aktif
-        </Pill>
-        <span className="text-body-sm text-ink font-medium">
-          {ads.length || 3} reklam · {dailyBudgetTry.toLocaleString('tr-TR')} ₺/gün
-        </span>
-      </div>
-      {audience ? (
-        <p className="text-body-sm text-ink-muted">
-          Hedef: <span className="text-ink">{audience.demographic}</span>
-        </p>
+    <div className="flex flex-col gap-2">
+      {sourceMode === 'fallback' ? (
+        <div className="rounded-md border border-[color-mix(in_srgb,var(--color-warning,#d97706)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-warning,#d97706)_10%,transparent)] px-3 py-2 text-body-sm text-ink-muted animate-fade-up">
+          <strong className="text-ink">Uyarı — ürün sayfası okunamadı.</strong> AI, URL ve alan
+          adından çıkarım yaparak içerik üretti; reklam metinleri ürünü tam yansıtmayabilir. Sayfa
+          erişime açıkken tekrar deneyebilirsin.
+        </div>
       ) : null}
-      <p className="text-[12px] text-ink-subtle break-all font-mono">{productUrl}</p>
+      <div className="rounded-md border border-[color-mix(in_srgb,var(--color-success)_40%,transparent)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)] px-4 py-3 flex flex-col gap-2 animate-fade-up">
+        <div className="flex items-center gap-2">
+          <Pill tone="success" dot>
+            aktif
+          </Pill>
+          <span className="text-body-sm text-ink font-medium">
+            {ads.length || 3} reklam · {dailyBudgetTry.toLocaleString('tr-TR')} ₺/gün
+          </span>
+        </div>
+        {audience ? (
+          <p className="text-body-sm text-ink-muted">
+            Hedef: <span className="text-ink">{audience.demographic}</span>
+          </p>
+        ) : null}
+        <p className="text-[12px] text-ink-subtle break-all font-mono">{productUrl}</p>
+      </div>
     </div>
   );
 }

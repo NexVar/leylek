@@ -31,6 +31,29 @@ const FormSchema = z.object({
 
 type FieldErrors = Partial<Record<'productUrl' | 'dailyBudgetTry' | '_form', string>>;
 
+/**
+ * Translate gateway/agent error codes into friendly Turkish prose. The raw
+ * `content_agent_failed` / `publisher_agent_failed` strings look like a bug
+ * to the user — surface the real cause instead.
+ */
+function humanizeCreateError(err: unknown): string {
+  if (!(err instanceof ApiError)) return 'Kampanya oluşturulamadı. Tekrar dene.';
+  const code = err.message;
+  if (code === 'rate_limited') {
+    return 'AI servisi şu an çok yoğun (rate limited). Yaklaşık bir dakika sonra tekrar dene — sistemde hata yok.';
+  }
+  if (code === 'content_agent_failed' || code === 'content_agent_invalid_output') {
+    return 'AI içerik üretemedi — ürün sayfası okunamadı ya da geçici bir AI servis hatası. Birazdan tekrar dene.';
+  }
+  if (code === 'publisher_agent_failed') {
+    return 'Reklamlar üretildi ama yayın platformuna iletilemedi. Kampanya taslakta kaldı — birazdan tekrar dene.';
+  }
+  if (code === 'invalid_request') {
+    return 'URL veya bütçe geçersiz. Lütfen düzelt ve tekrar dene.';
+  }
+  return err.message || 'Kampanya oluşturulamadı. Tekrar dene.';
+}
+
 // Artificial stage durations (ms) — keep the reveal feeling deliberate even
 // when the API resolves fast. The publish step never advances on the timer;
 // it waits for the mutation to actually finish so the reveal isn't lying.
@@ -165,8 +188,7 @@ export function NewCampaignModal({ open, onClose }: NewCampaignModalProps) {
     } catch (err) {
       clearTimers();
       setStage(null);
-      const msg = err instanceof ApiError ? err.message : 'Kampanya oluşturulamadı. Tekrar dene.';
-      setErrors({ _form: msg });
+      setErrors({ _form: humanizeCreateError(err) });
     }
   };
 
@@ -196,6 +218,7 @@ export function NewCampaignModal({ open, onClose }: NewCampaignModalProps) {
           ads={ads}
           stage={stage}
           mutationReady={createMutation.isSuccess}
+          sourceMode={result?.sourceMode}
         />
         {stage === 'done' ? (
           <div className="flex items-center justify-end gap-3 pt-1">

@@ -158,6 +158,12 @@ export interface CreateCampaignResponse {
    * call is still in flight or on completion.
    */
   audience: CampaignAudience;
+  /**
+   * 'fetched' when the product URL was successfully scraped, 'fallback' when
+   * the page was unreachable (403, timeout, JS-only) and Gemini had to infer
+   * from the URL slug. UI uses this to show a soft warning at the done state.
+   */
+  sourceMode?: 'fetched' | 'fallback';
 }
 
 export function useCreateCampaign() {
