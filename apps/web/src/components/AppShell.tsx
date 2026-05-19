@@ -29,7 +29,6 @@ export function AppShell({ children }: AppShellProps) {
   const onDashboard =
     location.pathname === '/dashboard' || location.pathname.startsWith('/campaigns');
   const onAccounts = location.pathname === '/accounts';
-  const onAdmin = location.pathname === '/admin';
 
   return (
     <div className="min-h-screen flex flex-col bg-surface">
@@ -86,15 +85,12 @@ export function AppShell({ children }: AppShellProps) {
         aria-label="Mobil ana gezinme"
         className="sm:hidden fixed left-0 right-0 bottom-0 z-40 border-t border-border bg-surface-raised px-3 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-card-lg"
       >
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <BottomNavLink to="/dashboard" active={onDashboard} icon="campaigns">
             Kampanyalar
           </BottomNavLink>
           <BottomNavLink to="/accounts" active={onAccounts} icon="accounts">
             Hesaplar
-          </BottomNavLink>
-          <BottomNavLink to="/admin" active={onAdmin} icon="system">
-            Sistem
           </BottomNavLink>
         </div>
       </nav>
