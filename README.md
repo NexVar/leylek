@@ -2,141 +2,169 @@
 
 > **Müşteriyi Leylek getirir.** Siz uyurken satış yapan, zararı kesen otonom dijital pazarlama ajansınız.
 
-Cloudflare Workers + Google Gemini 2.5 üzerinde çalışan **multi-agent** yapay zeka platformu. KOBİ'ler ve e-ticaret satıcıları için Meta Ads + Google Ads kampanyalarını otonom olarak üretir, yayınlar, optimize eder; zarar eden reklamı kapatıp bütçeyi kâr edene kaydırır.
+[![CI](https://github.com/NexVar/leylek/actions/workflows/ci.yml/badge.svg)](https://github.com/NexVar/leylek/actions/workflows/ci.yml)
+[![Live](https://img.shields.io/badge/live-leylek.nexvar.io-0F1729?logo=cloudflare&logoColor=white)](https://leylek.nexvar.io)
+[![v1.1.0](https://img.shields.io/badge/release-v1.1.0-E85D4A)](https://github.com/NexVar/leylek/releases/tag/v1.1.0)
+
+Cloudflare üzerinde tamamen serverless çalışan **multi-agent yapay zekâ platformu**. KOBİ ve e-ticaret satıcıları için Meta Ads + Google Ads kampanyalarını otonom üretir, yayınlar ve optimize eder; zarar eden reklamı kapatır, bütçeyi kâr edene kaydırır.
 
 İki çalışma modu:
 
 - **Otopilot** — Tam otonom. Ajan kendi karar verir, eyleme geçer, log tutar.
-- **Co-Pilot** — İnsan onaylı. Ajan önerir, kullanıcı tıklar, sonra ajan yürütür.
+- **Co-Pilot** — İnsan onaylı. Ajan önerir, kullanıcı uygulamadan veya e-postadan onaylar, ajan yürütür.
 
-## Demo
+## Canlı
 
-| Surface | URL |
+| | URL |
 |---|---|
-| Frontend + API | https://leylek.nexvar.io |
-| `/api/health` (5-Worker probe) | [link](https://leylek.nexvar.io/api/health) |
+| Uygulama | <https://leylek.nexvar.io> |
+| Sağlık probe (7 worker) | <https://leylek.nexvar.io/api/health> |
 
-Single-origin — frontend ve gateway aynı host'tan serve ediliyor
-(`/api/*` Worker route, geri kalan Pages). Cookie SameSite=Lax.
+Single-origin: frontend Pages'tan, `/api/*` Worker route üzerinden gateway'e — aynı host, `SameSite=Lax` cookie.
 
-**Giriş:** İki seçenek — e-postaya giriş bağlantısı (magic-link via
-Resend) veya Google ile Giriş Yap (OAuth). Production redirect URI'sini
-Cloud Console'a ekledikten sonra Google butonu çalışır;
-[DEMO_PLAYBOOK §10](./docs/DEMO_PLAYBOOK.md).
+## Ne yapıyor — 4 ekranda özet
 
-**Otopilot + Co-Pilot:** Otopilot 60 saniyelik aha anı; Co-Pilot için
-kampanya başlığındaki **Otopilot / Co-Pilot** pill'ine tıklayıp tekrar
-"Şimdi Optimize Et" de — bu kez ajan kararı **öneri** olarak düşüyor,
-kullanıcı **Onayla** butonuyla yayın ajanını tetikliyor (PRD §7).
+| | |
+|---|---|
+| ![Dashboard with bell](./docs/screenshots/01-dashboard.png) | **Dashboard.** Kampanya listesi, aktif sayım, kullanıcı menüsü. Header'da bekleyen Co-Pilot önerisi sayısı bell badge ile düşer. |
+| ![Co-Pilot inbox](./docs/screenshots/02-copilot-inbox.png) | **In-app Co-Pilot inbox.** Cross-campaign pending proposals kampanya hostname'ine göre gruplanır. Onayla → publisher-agent gerçek aksiyonu uygular. |
+| ![Decision replay](./docs/screenshots/03-decision-replay.png) | **Karar replay.** Geçmiş bir ajan kararına tıklayınca Gemini'nin Türkçe gerekçesi yeniden oynatılır — typewriter animasyonu + güven yüzdesi + Gemini request id. |
+| ![Campaign detail](./docs/screenshots/04-campaign-detail.png) | **Kampanya detay.** 3 reklam varyantı (Agresif / Hikaye / Teknik), 48 saatlik harcama eğrisi, ajan timeline'ı, "Şimdi Optimize Et" CTA. |
 
-**Akış:** [docs/DEMO_PLAYBOOK.md](./docs/DEMO_PLAYBOOK.md). Reset:
-`pnpm db:seed` (idempotent). E2E: `./scripts/e2e-demo.sh`.
+## Mimari
 
-## Mimari özeti
-
-Tamamen serverless — hiçbir sunucu kiralanmadı, sonsuz ölçeklenir.
+Tamamen serverless — hiçbir sunucu kiralanmadı.
 
 | Katman | Teknoloji |
 |---|---|
-| Frontend | React 19 + Vite 8 + Tailwind CSS v4 (Cloudflare Pages) |
-| Backend (5 mikroservis ajan) | Cloudflare Workers + Hono (Service Bindings ile haberleşir) |
+| Frontend | React 19 + Vite 8 + Tailwind v4 (CSS-first `@theme`) — Cloudflare Pages |
+| Backend (7 Worker) | Cloudflare Workers + Hono v4, Service Bindings ile haberleşir |
 | Per-campaign state | Cloudflare Durable Objects (her kampanya kendi "yaşayan ajanı") |
 | Veritabanı | Cloudflare D1 (serverless SQLite) + Drizzle ORM |
 | Cache & session | Cloudflare KV |
-| AI | Google Gemini 2.5 Pro (content + optimizer kararı) / 2.5 Flash (özet) |
-| Reklam API'leri | Meta Marketing API + Meta Conversions API + Google Ads API (gerçek, sandbox/test account) |
-| Auth | Google OAuth 2.0 (ana) + Magic Link via Resend (yedek) |
+| AI | Google Gemini 2.5 Flash (`responseSchema` ile structured output) |
+| Reklam API'leri | Google Ads REST v17 + Meta Marketing API v21.0 — sandbox'ta `leylek-google-ads-mock` / `leylek-meta-ads-mock` Worker'ları, prod'da `googleads.googleapis.com` / `graph.facebook.com` (tek code path, `*_BASE_URL` env switch) |
+| Auth | Google OAuth 2.0 (ana) + Magic-link via Resend (yedek) |
+| CI/CD | GitHub Actions — typecheck + lint + build + 7-worker deploy + Pages deploy on push to main |
 
-Detaylı mimari: [PRD.md](./PRD.md) §5–§6.
-
-## Multi-agent katmanı (5 Worker + 1 Durable Object)
+### 7 Worker + 1 Durable Object
 
 ```
-React (Pages) → gateway Worker → [ content-agent | optimizer-agent | publisher-agent | analytics-worker ]
-                                            ↓
-                                  Campaign Durable Object (per kampanya)
-                                            ↓
-                                          D1 + KV
+React (Pages) ──── /api/* ────► gateway
+                                  │
+                                  ▼  Service Bindings (internal, no public URL)
+              ┌────────────┬─────────────┬───────────┬────────────┐
+        content-agent  optimizer-agent  publisher-agent  analytics-worker
+                            │                │                │
+                            ▼                ▼                ▼
+                     Campaign DO       HTTPS to mocks    HTTPS to mocks
+                     (per-campaign     (sandbox) /       (sandbox) /
+                      atomic state)     real Google/      real Google/
+                                        Meta (prod)       Meta (prod)
+                                              │
+                                              ▼
+                            workers/google-ads-mock + meta-ads-mock
+                            (Hono Workers emulating v17 + v21.0 APIs)
+                                              │
+                                              ▼
+                                         D1 + KV
 ```
 
-- `gateway` — API entry, Google OAuth + magic-link (Resend) + JWT, AES helpers, frontend façade
-- `content-agent` — **Gemini 2.5 Flash** (PRD §16 fallback path) — ürün URL'sini analiz, persona çıkarımı, 3 reklam varyantı (Agresif / Hikaye / Teknik), `responseSchema` ile structured output
-- `optimizer-agent` — **Gemini 2.5 Flash** (cron her 6 saat) — spend/CPA/CTR oku, pause/keep/realloc kararı + Türkçe gerekçe
-- `publisher-agent` — Google Ads gerçek API kodu repo'da (`real-google-ads.ts`); demo `sim` runtime'da `SimulatedAdsClient`; Meta `MetaAdsClient` Faz 2 stub
-- `analytics-worker` — D1 metric_snapshots → cached aggregates (`ads.spend_kurus` vb.); real mode'da Google Ads insights'tan yeni snapshot çeker
-- `Campaign DO` — per-campaign decision history, atomic Gemini → publisher action zinciri
+- **gateway** — API entry, Google OAuth + magic-link (Resend) + JWT, AES helpers, frontend façade.
+- **content-agent** — Gemini Flash, ürün URL'sini analiz, persona çıkarımı, 3 reklam varyantı (Agresif / Hikaye / Teknik).
+- **optimizer-agent** — Gemini Flash + Campaign Durable Object. Cron her 6 saat veya `/optimize-now`; pause/keep/realloc kararı + Türkçe gerekçe. Co-Pilot modunda öneri yazar (D1 `notifications` + e-posta), Otopilot'ta direkt uygular.
+- **publisher-agent** — `AdPlatformClient` factory (PRD §10 port + adapter). Provider'a göre `RealGoogleAdsClient` veya `RealMetaAdsClient`; her ikisi de `baseUrl` env'i ile sandbox/prod'a yönlenir.
+- **analytics-worker** — 15 dakikalık cron + `/internal/refresh/:campaignId`. Platform'dan (mock veya gerçek) fresh metric ingestion + D1 `metric_snapshots` aggregation → `ads.spend_kurus` cache.
+- **google-ads-mock + meta-ads-mock** — Google Ads REST v17 + Meta Marketing v21.0 subset'lerini emüle eder. State paylaşılan KV'de `gads:*` / `meta:*` prefix'leri ile. Sandbox demo bunlara konuşur.
+- **Campaign DO** — per-campaign decision history, atomic Gemini → publisher zincir.
+
+Detaylı mimari kararları: [`docs/AGENT_DECISIONS.md`](./docs/AGENT_DECISIONS.md). 11 wave'lik build geçmişi: [`docs/AGENT_BUILD_LOG.md`](./docs/AGENT_BUILD_LOG.md).
 
 ## Repo yapısı
 
 ```
 leylek/
-├── apps/
-│   └── web/                # React + Vite + Tailwind frontend
+├── apps/web/                      # React 19 + Vite 8 + Tailwind v4 frontend
 ├── workers/
-│   ├── gateway/
-│   ├── content-agent/
-│   ├── optimizer-agent/
-│   ├── publisher-agent/
-│   └── analytics-worker/
+│   ├── gateway/                   # Hono. OAuth, magic-link, JWT, campaign CRUD
+│   ├── content-agent/             # Gemini structured-output URL → 3 variant
+│   ├── optimizer-agent/           # Campaign DO + Gemini decision + Co-Pilot
+│   ├── publisher-agent/           # AdPlatformClient factory + real clients
+│   ├── analytics-worker/          # cron + refresh + metric aggregation
+│   ├── google-ads-mock/           # Hono worker emulating Google Ads REST v17
+│   └── meta-ads-mock/             # Hono worker emulating Meta Marketing v21.0
 ├── packages/
-│   ├── shared-types/       # TS types ortak
-│   ├── db/                 # Drizzle schema + migrations
-│   └── prompts/            # Gemini prompt templates (versiyonlanmış)
+│   ├── shared-types/              # Zod schemas + TS types ortak
+│   ├── db/                        # Drizzle schema + migrations
+│   └── prompts/                   # Versioned Gemini prompts
 ├── scripts/
-│   └── seed-demo-data.ts   # Demo seeding (gerçek API çağrılarıyla)
+│   ├── seed-demo-data.ts          # Deterministic Demlik Pro demo (Mulberry32)
+│   ├── deploy.sh                  # 7-worker + Pages deploy in dependency order
+│   ├── e2e-demo.sh                # agent-browser walkthrough against prod
+│   └── setup-cloudflare-secrets.sh
 ├── docs/
-│   ├── PRD.md
-│   ├── DESIGN.md           # Visual identity (Google design.md formatı)
-│   └── ARCHITECTURE.md
-├── .env.example
-├── .gitignore
-├── LICENSE
-├── README.md
-├── biome.json
-├── package.json
-├── pnpm-workspace.yaml
-└── tsconfig.base.json
+│   ├── PRD.md                     # Product Requirement Document
+│   ├── ARCHITECTURE.md, DESIGN.md
+│   ├── AGENT_DECISIONS.md, AGENT_BUILD_LOG.md
+│   ├── DEMO_PLAYBOOK.md           # 60-saniyelik demo akışı
+│   ├── mockdata.md                # Wave 9 mock worker planı (tarihi)
+│   └── screenshots/               # README ekran görüntüleri
+├── .github/workflows/ci.yml       # build + lint + typecheck + deploy
+├── CLAUDE.md + AGENTS.md          # Repo-level agent brief (twin files)
+└── package.json + pnpm-workspace.yaml
 ```
 
-## Kurulum (geliştirici)
+## Kurulum
 
 ```bash
-pnpm install
-cp .env.example .env        # tüm credential'ları doldur (yönlendirme PRD §9'da)
-pnpm dev                    # Vite + wrangler dev paralel ayağa kaldırır
+pnpm install --frozen-lockfile
+cp .env.example .env                # tüm credential'ları doldur
+pnpm -r typecheck                   # tüm workspace tipleri temiz mi
+pnpm dev                            # paralel: Vite + her worker'ın `wrangler dev`'i
 ```
 
-Tüm credential listesi ve nereden alınacağı için [`.env.example`](./.env.example) içindeki yorumları oku.
+`.env.example` her secret için açıklama içeriyor — Google OAuth + Gemini + Resend + Cloudflare token + D1/KV id'leri.
 
-## Deploy + demo seed
+## Komutlar
+
+| Amaç | Komut |
+|---|---|
+| Tüm tipler clean mi | `pnpm -r typecheck` |
+| Lint (Biome 2.4) | `pnpm lint` |
+| Build (frontend + workers) | `pnpm build` |
+| Yeni Drizzle migration üret | `pnpm db:generate` (in `packages/db/`) |
+| Migration'ı prod D1'e uygula | `pnpm --filter @leylek/db db:migrate:prod` |
+| Demo verisini seed et | `pnpm db:seed` (idempotent) |
+| Tüm stack'i deploy et | `./scripts/deploy.sh` |
+| Secrets'ı wrangler'a push'la | `./scripts/setup-cloudflare-secrets.sh` |
+| End-to-end test | `./scripts/e2e-demo.sh` |
+
+## Demo akışı (60 saniye)
 
 ```bash
-# 1. Tüm 5 Worker + Pages tek komutta
+# 1) deploy
 ./scripts/deploy.sh
 
-# 2. Demlik Pro demo verisini D1 + KV'ye yaz
+# 2) seed (idempotent, Mulberry32 PRNG ile deterministik)
 pnpm db:seed
 
-# 3. End-to-end smoke (seeds, drives the browser, asserts state)
+# 3) tarayıcıyı dürt
 ./scripts/e2e-demo.sh
 ```
 
-Deploy bağımlılık sırasına dikkat eder: leaf Worker'lar → optimizer-agent
-(publisher binding'i ister) → gateway (4 Worker'a binding). Pages
-projesi `leylek-web` ilk deploy'da otomatik oluşur.
+Akış: magic-link giriş → dashboard → kampanya detay → **"Şimdi Optimize Et"** → Gemini canlı reasoning stream → AGGRESSIVE reklam PAUSED → ajan timeline'da yeni karar gözüküyor. Detaylı senaryo + ekran görüntüleri: [`docs/DEMO_PLAYBOOK.md`](./docs/DEMO_PLAYBOOK.md).
 
-## Jüri için harita
+Co-Pilot modunu denemek için kampanya başlığındaki **Otopilot ↔ Co-Pilot** pill'ine tıkla, sonra "Şimdi Optimize Et" — bu kez karar header'daki bell'e bekleyen öneri olarak düşer; bell click → drawer → Onayla.
 
-| Konu | PRD bölümü |
-|---|---|
-| Multi-Agent mimarisi | §5 |
-| Teknik altyapı (Cloudflare) | §6 |
-| Veri akışı + D1 şema | §7, §8 |
-| Real Integrations + Seeding stratejisi | §10 |
-| Git Flow & Commit stratejisi | §11 |
-| Demo akışı (60 sn aha) | §4 |
-| Jüri sunum stratejisi (4 Hoca için) | §15 |
+## CI / auto-deploy
+
+`.github/workflows/ci.yml`:
+
+- Her push + PR: `pnpm -r typecheck && pnpm lint && pnpm test && pnpm build`
+- `main` branch push: ek olarak `deploy-pages` (Pages → `leylek.nexvar.io`) + `deploy-workers` (7 worker dependency order: mocks önce, sonra leaf'ler, sonra optimizer, sonra gateway).
+
+Secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` `gh secret set` ile repo'ya set'lendi. Pages projesi Direct Uploads tipinde (`cannot update the source` API hatası nedeniyle Git source'a çevrilemiyor); CI'dan deploy aynı sonucu veriyor.
 
 ## Lisans
 
-© 2026 NexVar. Tüm hakları saklıdır. **Proprietary** — bu repo jüri değerlendirmesi için public görünür, ancak yazılım Proprietary lisans altındadır. Kopyalama, dağıtım, türetilmiş eser yasaktır. [LICENSE](./LICENSE) dosyasına bakın.
+© 2026 NexVar. **Proprietary** — bu repo public görünür ancak yazılım proprietary lisans altındadır. Kopyalama, dağıtım, türetilmiş eser yasaktır. [LICENSE](./LICENSE) dosyasına bakın.
