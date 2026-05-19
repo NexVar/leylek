@@ -191,13 +191,15 @@ function NotificationCard({ campaignId, notification }: NotificationCardProps) {
         <p className="text-body-sm text-danger leading-[1.4]">{errorMessage}</p>
       ) : null}
 
-      <div className="flex items-center justify-end gap-2 pt-1">
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
         <Button
           variant="secondary"
           size="md"
           onClick={() => reject.mutate(notification.id)}
           disabled={busy}
           loading={reject.isPending}
+          block
+          className="sm:w-auto"
         >
           {reject.isPending ? 'Reddediliyor…' : 'Reddet'}
         </Button>
@@ -207,6 +209,8 @@ function NotificationCard({ campaignId, notification }: NotificationCardProps) {
           onClick={() => approve.mutate(notification.id)}
           disabled={busy}
           loading={approve.isPending}
+          block
+          className="sm:w-auto"
         >
           {approve.isPending ? 'Uygulanıyor…' : 'Onayla'}
         </Button>

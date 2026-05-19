@@ -28,11 +28,13 @@ export function DashboardPage() {
   const hasCampaigns = (campaignsQuery.data?.campaigns.length ?? 0) > 0;
 
   return (
-    <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+    <div className="flex flex-col gap-7 sm:gap-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div className="flex flex-col gap-1.5">
           <span className="text-label text-ink-muted uppercase tracking-[0.08em]">Hoş geldin</span>
-          <h1 className="text-h1 text-ink">{greetingName}, ajanların görevde.</h1>
+          <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-ink sm:text-h1">
+            {greetingName}, ajanların görevde.
+          </h1>
           <p className="text-body-md text-ink-muted max-w-xl">
             Aktif kampanyalarını ve son ajan kararlarını buradan izle. Bir kampanya seçince
             optimizasyon ajanını manuel olarak da tetikleyebilirsin.
@@ -46,7 +48,7 @@ export function DashboardPage() {
         </Button>
       </header>
 
-      <section className="flex flex-col gap-4">
+      <section className="flex flex-col gap-3 sm:gap-4">
         <div className="flex items-baseline justify-between">
           <h2 className="text-h2 text-ink">Kampanyalar</h2>
           <span className="text-body-sm text-ink-subtle tabular-nums">
@@ -121,7 +123,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               {kurusToTry(campaign.dailyBudgetKurus)}
             </span>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2 text-right">
             <Pill tone={modeTone}>{modeLabel(campaign.mode)}</Pill>
             {campaign.adCount !== undefined ? (
               <span className="text-body-sm text-ink-muted tabular-nums">
@@ -149,7 +151,10 @@ function prettyTitle(url: string): string {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <Card padding="lg" className="flex flex-col items-center gap-5 text-center py-12">
+    <Card
+      padding="lg"
+      className="flex flex-col items-center gap-4 text-center py-10 sm:gap-5 sm:py-12"
+    >
       <div className="w-14 h-14 rounded-md bg-accent-tint flex items-center justify-center">
         <svg
           width="26"
@@ -170,7 +175,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
           aktarsın. Bütçeni biz kollarız.
         </p>
       </div>
-      <Button variant="primary" size="lg" onClick={onCreate}>
+      <Button variant="primary" size="lg" block onClick={onCreate} className="sm:w-auto">
         İlk kampanyanı oluştur
       </Button>
     </Card>

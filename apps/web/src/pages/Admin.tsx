@@ -5,7 +5,7 @@ import {
   useAdminKv,
   useAdminKvValue,
   useAdminSummary,
-  useBackfillImages,
+
 } from '../api/hooks';
 import type { AdminD1Table } from '../api/types';
 import { Button } from '../components/Button';
@@ -39,19 +39,19 @@ export function AdminPage() {
   const [tab, setTab] = useState<Tab>('summary');
 
   return (
-    <div className="flex flex-col gap-8 max-w-[960px]">
+    <div className="flex flex-col gap-7 sm:gap-8 max-w-[960px]">
       <header className="flex flex-col gap-1.5">
         <span className="text-label text-ink-muted uppercase tracking-[0.08em]">Inspector</span>
-        <h1 className="text-h1 text-ink">Sistem durumu</h1>
+        <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-ink sm:text-h1">
+          Sistem durumu
+        </h1>
         <p className="text-body-md text-ink-muted max-w-2xl">
           D1 tabloları + KV anahtarları üzerinde salt-okunur görünüm. Demo akışı sırasında ajanın
           gerçekten yazdığı row'ları görmek için.
         </p>
       </header>
 
-      <BackfillImagesCard />
-
-      <nav className="flex items-center gap-2 border-b border-border">
+      <nav className="flex items-center gap-2 overflow-x-auto border-b border-border">
         {(['summary', 'd1', 'kv'] as const).map((t) => (
           <TabButton key={t} active={tab === t} onClick={() => setTab(t)}>
             {t === 'summary' ? 'Özet' : t === 'd1' ? 'D1 tabloları' : 'KV anahtarları'}
@@ -63,49 +63,6 @@ export function AdminPage() {
       {tab === 'd1' ? <D1Tab /> : null}
       {tab === 'kv' ? <KvTab /> : null}
     </div>
-  );
-}
-
-function BackfillImagesCard() {
-  const backfill = useBackfillImages();
-  const data = backfill.data;
-
-  return (
-    <Card padding="lg" className="flex flex-col gap-3 border-accent/30">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex flex-col gap-1.5 min-w-0">
-          <h2 className="text-h3 text-ink">AI ad görsellerini üret</h2>
-          <p className="text-body-sm text-ink-muted leading-[1.5] max-w-prose">
-            Görseli olmayan her reklam için{' '}
-            <code className="font-mono">gemini-2.5-flash-image</code> (Nano Banana) ile bir creative
-            üretir, R2'ye yükler ve <code className="font-mono">ads.image_r2_key</code> kolonuna
-            yazar. Idempotent — sadece null olan row'lara dokunur. Sıralı çağırır, her görsel ~2-3
-            sn.
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          onClick={() => backfill.mutate()}
-          loading={backfill.isPending}
-          disabled={backfill.isPending}
-        >
-          {backfill.isPending ? 'Üretiliyor…' : 'Görselleri üret'}
-        </Button>
-      </div>
-      {data ? (
-        <div className="pt-2 border-t border-border flex items-center gap-3 flex-wrap text-body-sm">
-          <Pill tone="success" dot>
-            {data.filled} üretildi
-          </Pill>
-          {data.failed > 0 ? <Pill tone="danger">{data.failed} başarısız</Pill> : null}
-          <span className="text-ink-subtle">{data.total} eksik row tarandı</span>
-        </div>
-      ) : backfill.error ? (
-        <p className="text-body-sm text-danger pt-2 border-t border-border">
-          {backfill.error instanceof ApiError ? backfill.error.message : 'Beklenmeyen hata.'}
-        </p>
-      ) : null}
-    </Card>
   );
 }
 
@@ -123,7 +80,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'px-3 py-2 -mb-px text-body-sm font-medium transition-colors duration-150',
+        'px-3 py-2 -mb-px text-body-sm font-medium transition-colors duration-150 whitespace-nowrap',
         'border-b-2',
         active
           ? 'border-accent text-ink'
@@ -201,13 +158,13 @@ function D1Tab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card padding="md" className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1.5 text-body-sm">
+      <Card padding="md" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex flex-col gap-1.5 text-body-sm sm:w-auto">
           <span className="text-ink-muted">Tablo</span>
           <select
             value={table}
             onChange={(e) => setTable(e.target.value as AdminD1Table)}
-            className="rounded-md border border-border bg-surface-raised px-3 h-9 text-body-sm text-ink"
+            className="h-9 rounded-md border border-border bg-surface-raised px-3 text-body-sm text-ink"
           >
             {TABLES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -216,7 +173,7 @@ function D1Tab() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1.5 text-body-sm">
+        <label className="flex flex-col gap-1.5 text-body-sm sm:w-auto">
           <span className="text-ink-muted">Limit</span>
           <input
             type="number"
@@ -224,13 +181,13 @@ function D1Tab() {
             max={200}
             value={limit}
             onChange={(e) => setLimit(Number.parseInt(e.target.value, 10) || 20)}
-            className="rounded-md border border-border bg-surface-raised px-3 h-9 w-24 text-body-sm text-ink"
+            className="h-9 rounded-md border border-border bg-surface-raised px-3 text-body-sm text-ink sm:w-24"
           />
         </label>
-        <Button variant="secondary" onClick={() => query.refetch()}>
+        <Button variant="secondary" block className="sm:w-auto" onClick={() => query.refetch()}>
           Yenile
         </Button>
-        <span className="ml-auto text-body-sm text-ink-muted self-center">
+        <span className="text-body-sm text-ink-muted sm:ml-auto sm:self-center">
           {query.data?.count ?? 0} satır · DESC sıralı (id)
         </span>
       </Card>
@@ -293,15 +250,15 @@ function KvTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card padding="md" className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1.5 text-body-sm">
+      <Card padding="md" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex flex-col gap-1.5 text-body-sm sm:w-auto">
           <span className="text-ink-muted">Prefix</span>
           <input
             type="text"
             value={prefix}
             onChange={(e) => setPrefix(e.target.value)}
             list="kv-prefix-options"
-            className="rounded-md border border-border bg-surface-raised px-3 h-9 w-56 text-body-sm text-ink font-mono"
+            className="h-9 rounded-md border border-border bg-surface-raised px-3 text-body-sm text-ink font-mono sm:w-56"
           />
           <datalist id="kv-prefix-options">
             {KV_PREFIXES.map((p) => (
@@ -309,10 +266,10 @@ function KvTab() {
             ))}
           </datalist>
         </label>
-        <Button variant="secondary" onClick={() => list.refetch()}>
+        <Button variant="secondary" block className="sm:w-auto" onClick={() => list.refetch()}>
           Yenile
         </Button>
-        <span className="ml-auto text-body-sm text-ink-muted self-center">
+        <span className="text-body-sm text-ink-muted sm:ml-auto sm:self-center">
           {list.data?.keys.length ?? 0} anahtar
           {list.data && !list.data.listComplete ? ' (kısmi)' : ''}
         </span>

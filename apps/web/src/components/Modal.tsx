@@ -57,7 +57,7 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-label={typeof title === 'string' ? title : undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+      className="fixed inset-0 z-50 flex items-end justify-center px-0 py-0 sm:items-center sm:px-4 sm:py-6"
     >
       <button
         type="button"
@@ -70,8 +70,8 @@ export function Modal({
       />
       <div
         className={cn(
-          'relative w-full bg-surface-raised rounded-lg shadow-card-lg border border-border',
-          'animate-toast-in p-6 flex flex-col gap-5',
+          'relative w-full max-h-[calc(100dvh-1rem)] overflow-y-auto bg-surface-raised rounded-t-lg shadow-card-lg border border-border',
+          'animate-toast-in p-5 sm:p-6 flex flex-col gap-5 sm:rounded-lg',
           widths[size],
         )}
       >

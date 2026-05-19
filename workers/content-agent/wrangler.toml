@@ -6,13 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
-# R2 bucket for AI-generated ad creatives. content-agent calls
-# `gemini-2.5-flash-image` (Nano Banana) per variant, then writes the
-# returned PNG here under `ad-<id>.png`. Gateway proxies reads at
-# `/api/creatives/:key`.
-[[r2_buckets]]
-binding = "CREATIVES"
-bucket_name = "leylek-creatives"
-
+# R2 bucket (optional) — AI-generated ad creatives. Uncomment once the CI
+# deploy token has R2 permissions:
+#   [[r2_buckets]]
+#   binding = "CREATIVES"
+#   bucket_name = "leylek-creatives"
+#
 # Secrets — set via `wrangler secret put <NAME> --name leylek-content-agent`:
 #   GEMINI_API_KEY

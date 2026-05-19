@@ -134,7 +134,7 @@ export function OptimizerToast({
       aria-modal="false"
       aria-label="Optimizasyon kararı"
       className={cn(
-        'fixed bottom-6 right-6 z-50 w-[min(440px,calc(100vw-2rem))]',
+        'fixed left-4 right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-50 sm:left-auto sm:right-6 sm:bottom-6 sm:w-[min(440px,calc(100vw-2rem))]',
         'animate-toast-in',
       )}
     >
@@ -192,9 +192,9 @@ export function OptimizerToast({
           </p>
 
           {!isStreaming ? (
-            <div className="flex items-center justify-between gap-3 pt-1">
+            <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-body-sm text-ink-muted tabular-nums">{confidenceLabel}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end gap-2">
                 {canApprove ? (
                   <>
                     <Button variant="ghost" size="md" onClick={onDismiss} disabled={approving}>

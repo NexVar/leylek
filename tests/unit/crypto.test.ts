@@ -30,7 +30,7 @@ describe('AES-256-GCM envelope', () => {
     const ct = await aesEncrypt('sensitive', AES_KEY);
     // Flip a bit somewhere in the middle of the packed buffer.
     const bytes = Buffer.from(ct, 'base64');
-    bytes[20] = bytes[20]! ^ 0x01;
+    bytes[20] = (bytes[20] ?? 0) ^ 0x01;
     const tampered = bytes.toString('base64');
     await expect(aesDecrypt(tampered, AES_KEY)).rejects.toThrow();
   });

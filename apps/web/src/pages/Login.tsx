@@ -116,14 +116,16 @@ export function LoginPage() {
       </aside>
 
       {/* Auth form — surface, generous padding, single coral CTA. */}
-      <section className="flex flex-col justify-center items-center px-6 py-12">
-        <div className="w-full max-w-[420px] flex flex-col gap-8">
-          <div className="lg:hidden flex justify-center">
+      <section className="flex flex-col justify-start items-center px-5 pt-12 pb-10 sm:px-6 lg:justify-center lg:py-12">
+        <div className="w-full max-w-[420px] flex flex-col gap-7 sm:gap-8">
+          <div className="lg:hidden flex justify-start">
             <Logo size="md" />
           </div>
 
           <header className="flex flex-col gap-2">
-            <h2 className="text-h1 text-ink">Giriş yap</h2>
+            <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-ink sm:text-h1">
+              Giriş yap
+            </h2>
             <p className="text-body-md text-ink-muted">
               Otonom reklam ajanına hoş geldin. Google hesabınla bağlan veya e-postanı bırak, sana
               tek tıkla giriş bağlantısı gönderelim.
@@ -210,7 +212,7 @@ interface SentPanelProps {
 function SentPanel({ result, onResend, resending }: SentPanelProps) {
   return (
     <div className="flex flex-col gap-4 bg-surface-raised border border-border rounded-md p-5 shadow-card-sm">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <span
           aria-hidden
           className="w-9 h-9 rounded-md bg-accent-tint text-accent flex items-center justify-center"
@@ -232,11 +234,11 @@ function SentPanel({ result, onResend, resending }: SentPanelProps) {
             />
           </svg>
         </span>
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           <span className="text-h3 text-ink">E-posta gönderildi</span>
           <span className="text-body-sm text-ink-muted">
-            <span className="font-medium text-ink">{result.email}</span> adresine giriş bağlantısı
-            yolladık. Mail kutuna bak.
+            <span className="font-medium text-ink break-all">{result.email}</span> adresine giriş
+            bağlantısı yolladık. Mail kutuna bak.
           </span>
         </div>
       </div>

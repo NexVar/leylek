@@ -25,7 +25,7 @@ export function Card({
     none: '',
     sm: 'p-3',
     md: 'p-4',
-    lg: 'p-6',
+    lg: 'p-5 sm:p-6',
   }[padding];
 
   return (
@@ -60,18 +60,30 @@ export function CardHeader({
 }: CardHeaderProps) {
   if (children) {
     return (
-      <div className={cn('flex items-start justify-between gap-4', className)} {...rest}>
+      <div
+        className={cn(
+          'flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4',
+          className,
+        )}
+        {...rest}
+      >
         {children}
       </div>
     );
   }
   return (
-    <div className={cn('flex items-start justify-between gap-4', className)} {...rest}>
+    <div
+      className={cn(
+        'flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4',
+        className,
+      )}
+      {...rest}
+    >
       <div className="min-w-0">
         {title ? <div className="text-h3 text-ink">{title}</div> : null}
         {subtitle ? <div className="text-body-sm text-ink-muted mt-1">{subtitle}</div> : null}
       </div>
-      {trailing ? <div className="shrink-0">{trailing}</div> : null}
+      {trailing ? <div className="shrink-0 self-start sm:self-auto">{trailing}</div> : null}
     </div>
   );
 }

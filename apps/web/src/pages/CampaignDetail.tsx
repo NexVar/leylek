@@ -96,7 +96,7 @@ export function CampaignDetailPage() {
   const logs = logsQuery.data?.logs ?? campaignQuery.data.logs;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5 sm:gap-6">
       <BackLink />
 
       <CampaignHeader
@@ -135,7 +135,7 @@ export function CampaignDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         <div className="flex flex-col gap-6 min-w-0">
           <section className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
               <h2 className="text-h2 text-ink">Reklam Varyantları</h2>
               <span className="text-body-sm text-ink-subtle">
                 İçerik ajanının ürettiği üç strateji
@@ -301,12 +301,14 @@ function CampaignHeader({
             />
             <span className="font-mono text-[11px] text-ink-subtle">{hostnameOf(productUrl)}</span>
           </div>
-          <h1 className="text-h1 text-ink">Demlik Pro — Akıllı Çay Demleme Cihazı</h1>
+          <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-ink sm:text-h1">
+            Demlik Pro — Akıllı Çay Demleme Cihazı
+          </h1>
           <a
             href={productUrl}
             target="_blank"
             rel="noreferrer noopener"
-            className="text-body-sm text-info hover:underline truncate inline-flex items-center gap-1"
+            className="max-w-full text-body-sm text-info hover:underline truncate inline-flex items-center gap-1"
             title={productUrl}
           >
             {productUrl}
@@ -334,13 +336,14 @@ function CampaignHeader({
           size="lg"
           onClick={onOptimize}
           loading={optimizing}
-          className="md:self-start whitespace-nowrap"
+          block
+          className="md:w-auto md:self-start whitespace-nowrap"
         >
           {optimizing ? 'Karar veriliyor…' : 'Şimdi Optimize Et'}
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-5 pt-4 border-t border-border md:grid-cols-4">
         <MetricNumber
           label="Günlük bütçe"
           value={kurusToTry(dailyBudgetKurus)}
@@ -451,7 +454,7 @@ function AdCard({ ad }: AdCardProps) {
         !isPaused && `border-l-2 ${strategyMeta.accent}`,
       )}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <Pill tone={isPaused ? 'danger' : strategyMeta.tone} dot>
           {strategyLabel(ad.strategyType)}
         </Pill>
@@ -487,7 +490,7 @@ function AdCard({ ad }: AdCardProps) {
 
       <p
         className={cn(
-          'text-body-md text-ink mt-3 leading-[1.5] min-h-[5.5rem]',
+          'text-body-md text-ink mt-3 leading-[1.5] sm:min-h-[5.5rem]',
           isPaused && 'text-ink-muted line-through decoration-danger/40',
         )}
       >
@@ -512,8 +515,8 @@ function AdCard({ ad }: AdCardProps) {
         />
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 text-body-sm text-ink-subtle">
-        <span className="font-mono text-[11px]">
+      <div className="mt-3 flex flex-col gap-1 text-body-sm text-ink-subtle sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+        <span className="font-mono text-[11px] break-all">
           {ad.googleAdId ?? ad.metaAdId ?? `sim_ad_${ad.id}`}
         </span>
         {isPaused ? <span className="text-danger font-medium">stop-loss tetiklendi</span> : null}

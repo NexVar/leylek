@@ -33,12 +33,11 @@ migrations_dir = "../../packages/db/migrations"
 binding = "KV"
 id = "e9c37be505844e1dbdb0b83b8311ed17"
 
-# R2 bucket — gateway proxies AI-generated ad creatives so the frontend
-# can fetch them from the same origin (leylek.nexvar.io) without leaking
-# a separate r2.dev URL or needing a custom subdomain.
-[[r2_buckets]]
-binding = "CREATIVES"
-bucket_name = "leylek-creatives"
+# R2 bucket (optional) — AI-generated ad creatives. Uncomment once the CI
+# deploy token has R2 permissions:
+#   [[r2_buckets]]
+#   binding = "CREATIVES"
+#   bucket_name = "leylek-creatives"
 
 # Service bindings — each agent Worker is reachable type-safely from here.
 [[services]]

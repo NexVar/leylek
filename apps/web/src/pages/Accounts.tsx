@@ -36,12 +36,14 @@ export function AccountsPage() {
   const disconnect = useDisconnectAccount();
 
   return (
-    <div className="flex flex-col gap-8 max-w-[760px]">
+    <div className="flex flex-col gap-7 sm:gap-8 max-w-[760px]">
       <header className="flex flex-col gap-1.5">
         <span className="text-label text-ink-muted uppercase tracking-[0.08em]">
           Hesap Bağlantıları
         </span>
-        <h1 className="text-h1 text-ink">Bağlı reklam hesapların</h1>
+        <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-ink sm:text-h1">
+          Bağlı reklam hesapların
+        </h1>
         <p className="text-body-md text-ink-muted max-w-xl">
           Yayın ajanı reklamlarını bu hesaplar üzerinden açar, durdurur ve bütçesini kaydırır.
           Token'lar şifrelenmiş olarak saklanır.
@@ -124,25 +126,30 @@ function AccountRow({ account, onDisconnect, disconnecting }: AccountRowProps) {
         : 'İptal';
 
   return (
-    <Card padding="md" className="flex items-center justify-between gap-4">
-      <div className="flex items-center gap-4 min-w-0">
+    <Card
+      padding="md"
+      className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex items-start gap-3 min-w-0 sm:items-center sm:gap-4">
         <div
           aria-hidden
           className={cn(
-            'w-10 h-10 rounded-md flex items-center justify-center font-semibold text-[16px]',
+            'w-10 h-10 rounded-md flex shrink-0 items-center justify-center font-semibold text-[16px]',
             meta.tone,
           )}
         >
           {meta.glyph}
         </div>
         <div className="min-w-0 flex flex-col gap-0.5">
-          <span className="text-h3 text-ink truncate">{account.accountLabel ?? meta.label}</span>
-          <span className="font-mono text-[11px] text-ink-subtle truncate">
+          <span className="text-h3 text-ink leading-tight sm:truncate">
+            {account.accountLabel ?? meta.label}
+          </span>
+          <span className="font-mono text-[11px] text-ink-subtle break-all sm:truncate">
             {meta.label} · {account.externalId}
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
         <Pill tone={statusTone} dot>
           {statusLabel}
         </Pill>
@@ -152,6 +159,8 @@ function AccountRow({ account, onDisconnect, disconnecting }: AccountRowProps) {
           onClick={onDisconnect}
           loading={disconnecting}
           disabled={disconnecting}
+          block
+          className="sm:w-auto"
         >
           Bağlantıyı kes
         </Button>
