@@ -67,16 +67,25 @@ export function NewCampaignModal({ open, onClose }: NewCampaignModalProps) {
     timeoutsRef.current = [];
   };
 
-  // When the mutation resolves, push past `publish` → `done`.
+  // Stash the result as soon as the mutation resolves — independent of which
+  // artificial stage we're on, so the data is ready when `publish` reveals.
   useEffect(() => {
-    if (!createMutation.isSuccess) return;
-    setResult(createMutation.data);
-    // Allow the publish step to be visible for at least 800 ms so the
-    // platform-routing reveal isn't a one-frame flash.
+    if (createMutation.isSuccess && createMutation.data) {
+      setResult(createMutation.data);
+    }
+  }, [createMutation.isSuccess, createMutation.data]);
+
+  // Advance `publish` → `done` only when we've actually reached `publish` AND
+  // the mutation has resolved. The old version watched only `isSuccess`, so a
+  // fast API would set `done` early — then the still-pending artificial
+  // timers (`strategy`, `images`, `publish`) would fire after and bounce the
+  // stage back to `publish`, leaving the modal stuck on the last step.
+  useEffect(() => {
+    if (stage !== 'publish' || !createMutation.isSuccess) return;
     const id = window.setTimeout(() => setStage('done'), 800);
     timeoutsRef.current.push(id);
     return () => window.clearTimeout(id);
-  }, [createMutation.isSuccess, createMutation.data]);
+  }, [stage, createMutation.isSuccess]);
 
   // Clean up timers on unmount. Inlined (not via `clearTimers`) so biome's
   // exhaustive-deps rule doesn't drag a new dep into a mount-only effect.

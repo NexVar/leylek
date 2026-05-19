@@ -14,7 +14,7 @@
  */
 
 import { DurableObject } from 'cloudflare:workers';
-import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { schema } from '@leylek/db';
 import { OPTIMIZER_AGENT_SYSTEM, OPTIMIZER_AGENT_USER } from '@leylek/prompts';
 import { type AgentAction, OptimizerDecision } from '@leylek/shared-types';
@@ -42,14 +42,11 @@ interface CampaignState {
 
 const HISTORY_LIMIT = 20;
 const METRIC_WINDOW_HOURS = 48;
-// PRD §16 — gemini-2.5-flash free-tier on our project is capped at 20 RPD;
-// we burn that in a single demo session (content-agent + optimizer share the
-// same key). Gemma 4 26B (MoE, 4B active per forward pass) is on the free
-// tier at 1,500 RPD and supports the same `systemInstruction` + `responseSchema`
-// shape so the rest of this method is unchanged. `thinkingLevel: MINIMAL`
-// keeps decision latency tight — optimizer decisions are short, no need for
-// extended chain-of-thought.
-const GEMINI_MODEL = 'gemma-4-26b-a4b-it';
+// Back on gemini-2.5-flash. Gemma 4 26B's free-tier latency was unworkable
+// (60-120s end-to-end with intermittent 502s) even though daily quota was
+// virtually untouched. Flash gives us ~1s decisions at the cost of a tighter
+// daily ceiling — acceptable for the demo path.
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // ---------------------------------------------------------------------------
 // Aggregated ad metrics passed into the prompt
@@ -368,7 +365,6 @@ export class CampaignAgent extends DurableObject<Env> {
             temperature: 0.2,
             responseMimeType: 'application/json',
             responseSchema: OPTIMIZER_RESPONSE_SCHEMA,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
           },
         });
 

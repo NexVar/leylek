@@ -19,7 +19,7 @@ import { scrapeProductUrl } from './scrape';
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/api/health', (c) =>
-  c.json({ status: 'ok', service: 'content-agent', model: 'gemma-4-26b-a4b-it' }),
+  c.json({ status: 'ok', service: 'content-agent', model: 'gemini-2.5-flash' }),
 );
 
 const AnalyzeRequest = z.object({
