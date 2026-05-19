@@ -190,3 +190,42 @@ export interface OAuthStartErrorResponse {
   error: 'oauth_not_wired';
   detail: string;
 }
+
+// ---------------------------------------------------------------------------
+// Admin / inspector
+// ---------------------------------------------------------------------------
+export type AdminD1Table =
+  | 'users'
+  | 'connected_accounts'
+  | 'campaigns'
+  | 'ads'
+  | 'agent_logs'
+  | 'metric_snapshots'
+  | 'notifications';
+
+export interface AdminSummaryResponse {
+  d1: Record<AdminD1Table, number>;
+  kv: Record<string, number>;
+}
+
+export interface AdminD1Response {
+  table: AdminD1Table;
+  rows: Array<Record<string, unknown>>;
+  count: number;
+}
+
+export interface AdminKvKey {
+  name: string;
+  expiration: number | null;
+}
+
+export interface AdminKvResponse {
+  prefix: string;
+  keys: AdminKvKey[];
+  listComplete: boolean;
+}
+
+export interface AdminKvValueResponse {
+  key: string;
+  value: string | null;
+}

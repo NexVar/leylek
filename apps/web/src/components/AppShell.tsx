@@ -204,6 +204,32 @@ function AvatarMenu({ onLogout, onNavigate }: AvatarMenuProps) {
             role="menuitem"
             onClick={() => {
               setOpen(false);
+              onNavigate('/admin');
+            }}
+            className="w-full text-left px-3 py-2 text-body-sm hover:bg-surface-sunken flex items-center gap-2 border-t border-border"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              role="img"
+              aria-hidden="true"
+            >
+              <path
+                d="M2 3h10M2 7h10M2 11h10M2 3v8M5 3v8M9 3v8M12 3v8"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+            </svg>
+            Sistem durumu
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
               onLogout();
             }}
             className="w-full text-left px-3 py-2 text-body-sm hover:bg-surface-sunken flex items-center gap-2 border-t border-border"

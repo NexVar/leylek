@@ -7,6 +7,11 @@ import type { CampaignMode } from '@leylek/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 import type {
+  AdminD1Response,
+  AdminD1Table,
+  AdminKvResponse,
+  AdminKvValueResponse,
+  AdminSummaryResponse,
   AgentLogsResponse,
   AuthMeResponse,
   Campaign,
@@ -291,6 +296,51 @@ export function useDisconnectAccount() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.accounts });
     },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Admin / inspector
+// ---------------------------------------------------------------------------
+export function useAdminSummary(enabled = true) {
+  return useQuery({
+    queryKey: ['admin', 'summary'] as const,
+    queryFn: ({ signal }) => api<AdminSummaryResponse>('/api/admin/summary', { signal }),
+    enabled,
+    staleTime: 5_000,
+  });
+}
+
+export function useAdminD1(table: AdminD1Table | null, limit = 20) {
+  return useQuery({
+    queryKey: ['admin', 'd1', table, limit] as const,
+    queryFn: ({ signal }) =>
+      api<AdminD1Response>(`/api/admin/d1?table=${table}&limit=${limit}`, { signal }),
+    enabled: table !== null,
+    staleTime: 5_000,
+  });
+}
+
+export function useAdminKv(prefix: string, limit = 50) {
+  return useQuery({
+    queryKey: ['admin', 'kv', prefix, limit] as const,
+    queryFn: ({ signal }) =>
+      api<AdminKvResponse>(`/api/admin/kv?prefix=${encodeURIComponent(prefix)}&limit=${limit}`, {
+        signal,
+      }),
+    staleTime: 5_000,
+  });
+}
+
+export function useAdminKvValue(key: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'kv-value', key] as const,
+    queryFn: ({ signal }) =>
+      api<AdminKvValueResponse>(`/api/admin/kv/value?key=${encodeURIComponent(key ?? '')}`, {
+        signal,
+      }),
+    enabled: key !== null && key.length > 0,
+    staleTime: 0,
   });
 }
 

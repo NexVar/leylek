@@ -10,6 +10,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 import type { Env } from './env';
+import { adminRoutes } from './routes/admin';
 import { authRoutes } from './routes/auth';
 import { campaignRoutes } from './routes/campaigns';
 import { adAccountRoutes } from './routes/connect';
@@ -66,6 +67,7 @@ app.route('/api/auth', authRoutes);
 app.route('/api/auth', adAccountRoutes);
 app.route('/api/campaigns', campaignRoutes);
 app.route('/api/notifications', notificationRoutes);
+app.route('/api/admin', adminRoutes);
 
 app.notFound((c) => c.json({ error: 'not found' }, 404));
 
