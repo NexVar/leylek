@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ApiError, GATEWAY_URL } from '../api/client';
-import { useConnectedAccounts, useDisconnectAccount } from '../api/hooks';
+import { ApiError } from '../api/client';
+import { useConnectedAccounts, useConnectMockAccount, useDisconnectAccount } from '../api/hooks';
 import type { AdProvider, ConnectedAccount } from '../api/types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -93,11 +93,12 @@ export function AccountsPage() {
         <h2 className="text-h2 text-ink">Yeni bağlantı ekle</h2>
         <Card padding="lg" className="flex flex-col gap-4">
           <p className="text-body-md text-ink-muted">
-            Her sağlayıcı için tek bir hesap bağlayabilirsin (MVP — Faz 2'de çoklu hesap).
+            Sandbox bağlantısı — yayın ajanı leylek-*-mock Worker'larına HTTPS gönderir.
+            Production'da aynı buton gerçek Google / Meta OAuth akışını başlatacak.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <ConnectButton provider="meta" path="/api/auth/meta/start" />
-            <ConnectButton provider="google_ads" path="/api/auth/google-ads/start" />
+            <ConnectButton provider="google_ads" />
+            <ConnectButton provider="meta" />
           </div>
         </Card>
       </section>
@@ -161,53 +162,39 @@ function AccountRow({ account, onDisconnect, disconnecting }: AccountRowProps) {
 
 interface ConnectButtonProps {
   provider: AdProvider;
-  path: string;
 }
 
-function ConnectButton({ provider, path }: ConnectButtonProps) {
+function ConnectButton({ provider }: ConnectButtonProps) {
   const meta = PROVIDER_META[provider];
-  const [notWired, setNotWired] = useState<string | null>(null);
-  const [requesting, setRequesting] = useState(false);
+  const connect = useConnectMockAccount();
+  const [justConnected, setJustConnected] = useState<string | null>(null);
 
+  // Add ~600 ms of artificial latency so the button reads like a real
+  // OAuth round-trip ("redirecting to Google → exchanging code →
+  // success") instead of an instant insert. The mock backend itself is
+  // sub-50 ms; this delay lives entirely on the click handler.
   const handleClick = async () => {
-    setNotWired(null);
-    setRequesting(true);
+    setJustConnected(null);
+    await new Promise((resolve) => setTimeout(resolve, 600));
     try {
-      const res = await fetch(`${GATEWAY_URL}${path}`, {
-        method: 'GET',
-        credentials: 'include',
-        redirect: 'manual',
-      });
-      if (res.status === 503) {
-        const body = (await res.json().catch(() => null)) as {
-          error?: string;
-          detail?: string;
-        } | null;
-        setNotWired(body?.detail ?? 'OAuth akışı henüz devrede değil (Faz 2).');
-        return;
-      }
-      // For real OAuth, the gateway 302s — `redirect: 'manual'` makes
-      // `res.type === 'opaqueredirect'`. Follow it ourselves.
-      if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
-        window.location.href = `${GATEWAY_URL}${path}`;
-        return;
-      }
-      if (!res.ok) {
-        setNotWired(`Hata ${res.status} — bağlantı başlatılamadı.`);
-      }
+      const { account } = await connect.mutateAsync(provider);
+      setJustConnected(account.externalId);
     } catch {
-      setNotWired('Ağ hatası — gateway erişilemiyor.');
-    } finally {
-      setRequesting(false);
+      // Mutation surfaces `connect.error` for inline rendering below.
     }
   };
+
+  const errorMessage = (() => {
+    if (!connect.error) return null;
+    return connect.error instanceof ApiError ? connect.error.message : 'Bağlantı kurulamadı.';
+  })();
 
   return (
     <div className="flex flex-col gap-2">
       <button
         type="button"
         onClick={handleClick}
-        disabled={requesting}
+        disabled={connect.isPending}
         className={cn(
           'w-full h-11 inline-flex items-center justify-center gap-2.5 rounded-md',
           'border border-accent text-accent bg-transparent hover:bg-accent-tint',
@@ -215,7 +202,7 @@ function ConnectButton({ provider, path }: ConnectButtonProps) {
           'disabled:opacity-60 disabled:cursor-not-allowed',
         )}
       >
-        {requesting ? (
+        {connect.isPending ? (
           <SpinnerInline className="text-current" />
         ) : (
           <span
@@ -228,14 +215,27 @@ function ConnectButton({ provider, path }: ConnectButtonProps) {
             {meta.glyph}
           </span>
         )}
-        {provider === 'meta' ? 'Meta hesabını bağla' : 'Google Ads hesabını bağla'}
+        {connect.isPending
+          ? `${provider === 'meta' ? 'Meta' : 'Google'} ile bağlanıyor…`
+          : provider === 'meta'
+            ? 'Meta hesabını bağla'
+            : 'Google Ads hesabını bağla'}
       </button>
-      {notWired ? (
+      {justConnected ? (
         <div className="flex items-start gap-2">
-          <Pill tone="warning" dot>
-            Faz 2'de geliyor
+          <Pill tone="success" dot>
+            Bağlandı
           </Pill>
-          <p className="text-body-sm text-ink-muted leading-[1.45]">{notWired}</p>
+          <p className="text-body-sm text-ink-muted leading-[1.45]">
+            Sandbox hesabı eklendi · <span className="font-mono">{justConnected}</span>
+          </p>
+        </div>
+      ) : errorMessage ? (
+        <div className="flex items-start gap-2">
+          <Pill tone="danger" dot>
+            Bağlanamadı
+          </Pill>
+          <p className="text-body-sm text-ink-muted leading-[1.45]">{errorMessage}</p>
         </div>
       ) : null}
     </div>

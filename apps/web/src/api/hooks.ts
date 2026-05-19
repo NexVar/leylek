@@ -12,6 +12,7 @@ import type {
   Campaign,
   CampaignDetailResponse,
   CampaignListResponse,
+  ConnectedAccount,
   ConnectedAccountsResponse,
   GlobalNotificationsResponse,
   MagicLinkRequestResponse,
@@ -287,6 +288,26 @@ export function useDisconnectAccount() {
   return useMutation({
     mutationFn: (accountId: number) =>
       api<void>(`/api/auth/accounts/${accountId}/disconnect`, { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.accounts });
+    },
+  });
+}
+
+/**
+ * Sandbox-mock OAuth connect. POSTs to the gateway, which simulates the
+ * dance against the leylek-*-mock Workers and persists a connected_accounts
+ * row. Production replacement (Faz 2) keeps the same endpoint shape but
+ * routes through the real Google / Meta OAuth flow before persisting.
+ */
+export function useConnectMockAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (provider: 'google_ads' | 'meta') =>
+      api<{ account: ConnectedAccount }>('/api/auth/accounts/connect', {
+        method: 'POST',
+        body: { provider },
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.accounts });
     },

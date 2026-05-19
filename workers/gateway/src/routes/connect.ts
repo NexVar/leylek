@@ -1,23 +1,28 @@
 /**
- * Reklam hesabı bağlama routes — list/disconnect + Meta/Google OAuth stubs.
+ * Reklam hesabı bağlama routes — list/disconnect + sandbox-mock OAuth.
  *
  * - `GET /api/auth/accounts`               : list current user's connected
  *                                            ad accounts; encrypted tokens are
  *                                            stripped before serialisation.
+ * - `POST /api/auth/accounts/connect`      : simulate the OAuth dance against
+ *                                            the leylek-*-mock Workers and
+ *                                            persist a connected_accounts row.
  * - `POST /api/auth/accounts/:id/disconnect`: mark a row `revoked` and clear
  *                                            its encrypted token columns.
  *
- * The Meta + Google Ads OAuth start/callback flows themselves stay stubs:
- * Meta is Faz 2 (PRD §17) and Google Ads needs developer-token Standard
- * access whose UI is out of scope for this wave. Each `start` returns a
- * friendly 503 so the frontend can render a meaningful "soon" state.
+ * Real Google OAuth + Meta OAuth shipping in Faz 2 (PRD §17) — production
+ * deploy flips `*_BASE_URL` env to the live endpoints and adds the real
+ * OAuth start/callback dance. Until then the sandbox-mock path lets the
+ * UI demonstrate the full "connect → account in list" flow end-to-end.
  */
 
 import { schema } from '@leylek/db';
 import { and, desc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
+import { z } from 'zod';
 
+import { aesEncrypt } from '../crypto';
 import type { Env } from '../env';
 import { type AuthVariables, requireAuth } from '../middleware/auth';
 
@@ -85,22 +90,89 @@ adAccountRoutes.post('/accounts/:id/disconnect', requireAuth, async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// OAuth start stubs — friendly 503 so the frontend can render a "soon" state.
+// POST /api/auth/accounts/connect — sandbox-mock OAuth dance.
 //
-// Meta is explicitly Faz 2 (PRD §17). Google Ads start requires the customer
-// to grant scopes whose UI flow is out of scope for this wave; the demo runs
-// on the `sim` ad-platform adapter so no real linking is needed today.
+// Simulates a successful OAuth round-trip against the leylek-*-mock
+// Workers: generates a random external account id in the same shape the
+// mock returns (10-17 digit numeric), encrypts a placeholder token, and
+// inserts the row as `status='active'`. The frontend invalidates the
+// listing query so the new row appears immediately.
+//
+// Production replacement (Faz 2) hangs off the same endpoint shape: instead
+// of fabricating ids + tokens, it'll redirect to Google/Meta, accept the
+// callback, exchange the code, and persist the real refresh / access token
+// in the same encrypted columns. The frontend contract stays unchanged.
 // ---------------------------------------------------------------------------
-const OAUTH_NOT_WIRED = {
-  error: 'oauth_not_wired',
-  detail:
-    'Bu bağlantı Faz 2\'de devreye girecek (PRD §17). Demo "sim" ad-platform üzerinde çalışıyor.',
-};
+const ConnectBody = z.object({
+  provider: z.enum(['google_ads', 'meta']),
+});
 
-adAccountRoutes.get('/meta/start', (c) => c.json(OAUTH_NOT_WIRED, 503));
-adAccountRoutes.get('/meta/callback', (c) => c.json(OAUTH_NOT_WIRED, 503));
-adAccountRoutes.get('/meta/accounts', (c) => c.json(OAUTH_NOT_WIRED, 503));
+function genSandboxId(provider: 'google_ads' | 'meta'): string {
+  // Google customer ids are conventionally 10 digits; Meta ad account ids
+  // are 15-17 digits. Match those shapes so log readers see realistic ids.
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let n = 0n;
+  for (const b of bytes) n = (n << 8n) | BigInt(b);
+  const digits = provider === 'google_ads' ? 10 : 16;
+  const mod = 10n ** BigInt(digits);
+  return (n % mod).toString().padStart(digits, '0');
+}
 
-adAccountRoutes.get('/google-ads/start', (c) => c.json(OAUTH_NOT_WIRED, 503));
-adAccountRoutes.get('/google-ads/callback', (c) => c.json(OAUTH_NOT_WIRED, 503));
-adAccountRoutes.get('/google-ads/accounts', (c) => c.json(OAUTH_NOT_WIRED, 503));
+adAccountRoutes.post('/accounts/connect', requireAuth, async (c) => {
+  const userId = Number(c.get('userId'));
+  let body: { provider: 'google_ads' | 'meta' };
+  try {
+    body = ConnectBody.parse(await c.req.json());
+  } catch {
+    return c.json({ error: 'invalid_body' }, 400);
+  }
+
+  const db = drizzle(c.env.DB, { schema });
+  const externalId = genSandboxId(body.provider);
+  const accountLabel =
+    body.provider === 'google_ads'
+      ? `Sandbox Google Ads · ${externalId}`
+      : `Sandbox Meta · act_${externalId}`;
+
+  // Encrypt a placeholder so the column is non-null and shaped like the
+  // real prod columns. Mock workers don't validate the token, so any
+  // string works; the production OAuth callback will replace this with
+  // the actual refresh / access token at exchange time.
+  const encAccessToken =
+    body.provider === 'meta'
+      ? await aesEncrypt(`sandbox-meta-access-${externalId}`, c.env.AES_KEY_BASE)
+      : null;
+  const encRefreshToken =
+    body.provider === 'google_ads'
+      ? await aesEncrypt(`sandbox-google-refresh-${externalId}`, c.env.AES_KEY_BASE)
+      : null;
+
+  const inserted = await db
+    .insert(schema.connectedAccounts)
+    .values({
+      userId,
+      provider: body.provider,
+      externalId,
+      accountLabel,
+      status: 'active',
+      encAccessToken,
+      encRefreshToken,
+    })
+    .returning({
+      id: schema.connectedAccounts.id,
+      provider: schema.connectedAccounts.provider,
+      externalId: schema.connectedAccounts.externalId,
+      accountLabel: schema.connectedAccounts.accountLabel,
+      status: schema.connectedAccounts.status,
+      connectedAt: schema.connectedAccounts.connectedAt,
+      lastUsedAt: schema.connectedAccounts.lastUsedAt,
+    });
+
+  const account = inserted[0];
+  if (!account) {
+    return c.json({ error: 'insert_failed' }, 500);
+  }
+
+  return c.json({ account });
+});
