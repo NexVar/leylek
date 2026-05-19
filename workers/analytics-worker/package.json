@@ -11,6 +11,7 @@
     "tail": "wrangler tail"
   },
   "dependencies": {
+    "@leylek/crypto": "workspace:*",
     "@leylek/db": "workspace:*",
     "@leylek/shared-types": "workspace:*",
     "drizzle-orm": "^0.36.0",

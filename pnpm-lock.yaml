@@ -79,6 +79,15 @@ importers:
         specifier: ^4.90.0
         version: 4.90.0(@cloudflare/workers-types@4.20260509.1)
 
+  packages/crypto:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250101.0
+        version: 4.20260509.1
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   packages/db:
     dependencies:
       drizzle-orm:
@@ -116,6 +125,9 @@ importers:
 
   workers/analytics-worker:
     dependencies:
+      '@leylek/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@leylek/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -175,6 +187,9 @@ importers:
 
   workers/gateway:
     dependencies:
+      '@leylek/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@leylek/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -275,6 +290,9 @@ importers:
 
   workers/publisher-agent:
     dependencies:
+      '@leylek/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@leylek/db':
         specifier: workspace:*
         version: link:../../packages/db
