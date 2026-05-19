@@ -9,10 +9,11 @@ import {
   useOptimizeNow,
   useUpdateCampaignMode,
 } from '../api/hooks';
-import type { Ad, CampaignMode, OptimizeNowResponse } from '../api/types';
+import type { Ad, AgentLog, CampaignMode, OptimizeNowResponse } from '../api/types';
 import { AgentLogRow } from '../components/AgentLogRow';
 import { Button } from '../components/Button';
 import { Card, CardHeader } from '../components/Card';
+import { DecisionReplayPanel } from '../components/DecisionReplayPanel';
 import { MetricNumber } from '../components/MetricNumber';
 import { NotificationsPanel } from '../components/NotificationsPanel';
 import { OptimizerToast } from '../components/OptimizerToast';
@@ -53,6 +54,7 @@ export function CampaignDetailPage() {
   const invalidate = useInvalidateCampaign();
 
   const [toast, setToast] = useState<OptimizeNowResponse | null>(null);
+  const [replayLog, setReplayLog] = useState<AgentLog | null>(null);
 
   if (!Number.isFinite(id) || id <= 0) {
     return (
@@ -189,6 +191,7 @@ export function CampaignDetailPage() {
                       log={log}
                       isFirst={i === 0}
                       isLast={i === logs.length - 1}
+                      onReplay={setReplayLog}
                     />
                   ))}
                 </ul>
@@ -223,6 +226,12 @@ export function CampaignDetailPage() {
           }}
         />
       ) : null}
+
+      <DecisionReplayPanel
+        open={replayLog !== null}
+        log={replayLog}
+        onClose={() => setReplayLog(null)}
+      />
     </div>
   );
 }
