@@ -8,7 +8,6 @@
  * exposed to the public internet.
  */
 
-import { GoogleGenAI } from '@google/genai';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
@@ -60,19 +59,20 @@ app.post('/internal/analyze', async (c) => {
       dailyBudgetTry,
     });
 
-    // Image generation per variant (optional — requires R2 binding + bucket).
-    // Best-effort and parallel — a failure on any single image returns null
-    // for that variant, never blocking the overall response.
-    let imageR2Keys: (string | null)[] = result.output.variants.map(() => null);
-    if (c.env.CREATIVES) {
-      const ai = new GoogleGenAI({ apiKey });
-      imageR2Keys = await Promise.all(
-        result.output.variants.map(async (v) => {
-          const generated = await generateAndStoreAdImage(ai, c.env.CREATIVES!, v.imagePrompt);
-          return generated?.r2Key ?? null;
-        }),
-      );
-    }
+    // Image generation per variant. Best-effort and parallel — a failure on
+    // any single image returns null for that variant, never blocking the
+    // overall response. Workers AI Flux Schnell is fast (~1-2 s per image)
+    // so total wall-clock is dominated by the slowest of the three.
+    const imageR2Keys: (string | null)[] = await Promise.all(
+      result.output.variants.map(async (v) => {
+        const generated = await generateAndStoreAdImage(
+          c.env.AI,
+          c.env.CREATIVES,
+          v.imagePrompt,
+        );
+        return generated?.r2Key ?? null;
+      }),
+    );
 
     return c.json({
       output: result.output,
@@ -119,14 +119,7 @@ app.post('/internal/generate-image', async (c) => {
       400,
     );
   }
-  const apiKey = c.env.GEMINI_API_KEY;
-  if (!apiKey) return c.json({ error: 'missing_gemini_api_key' }, 500);
-  if (!c.env.CREATIVES) {
-    return c.json({ error: 'r2_not_configured', detail: 'CREATIVES binding is not set' }, 501);
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-  const generated = await generateAndStoreAdImage(ai, c.env.CREATIVES, body.prompt);
+  const generated = await generateAndStoreAdImage(c.env.AI, c.env.CREATIVES, body.prompt);
   return c.json({ r2Key: generated?.r2Key ?? null, bytes: generated?.bytes ?? 0 });
 });
 
