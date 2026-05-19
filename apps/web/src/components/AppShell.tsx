@@ -26,24 +26,29 @@ export function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate();
   const logoutMutation = useLogout();
 
-  const onDashboard = location.pathname === '/dashboard';
+  const onDashboard =
+    location.pathname === '/dashboard' || location.pathname.startsWith('/campaigns');
   const onAccounts = location.pathname === '/accounts';
+  const onAdmin = location.pathname === '/admin';
 
   return (
     <div className="min-h-screen flex flex-col bg-surface">
-      <header className="bg-primary text-primary-foreground border-b border-primary-hover">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground border-b border-primary-hover">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           <Link
             to="/dashboard"
             className="flex items-center shrink-0"
             aria-label="Leylek Dashboard"
           >
-            <Logo tone="light" size="md" />
+            <span className="sm:hidden">
+              <Logo tone="light" size="sm" />
+            </span>
+            <span className="hidden sm:block">
+              <Logo tone="light" size="md" />
+            </span>
           </Link>
 
-          {/* Nav links live in the header on `sm+`; on small mobile the
-              dashboard is reached via the logo and accounts via the avatar
-              menu, keeping the header from overflowing on a 360-375 px width. */}
+          {/* Nav links live in the header on `sm+`; mobile gets a bottom tab bar. */}
           <nav className="hidden sm:flex items-center gap-1 text-[14px]">
             <TopNavLink to="/dashboard" active={onDashboard}>
               Kampanyalar
@@ -69,13 +74,30 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-5 sm:py-8 pb-24 sm:pb-8">
         {children}
       </main>
 
-      <footer className="max-w-[1280px] mx-auto px-4 sm:px-6 pb-6 pt-2 text-body-sm text-ink-subtle flex items-center justify-between">
+      <footer className="hidden sm:flex max-w-[1280px] mx-auto px-4 sm:px-6 pb-6 pt-2 text-body-sm text-ink-subtle items-center justify-between">
         <span>© {new Date().getFullYear()} Leylek — Otonom dijital reklam ajansı.</span>
       </footer>
+
+      <nav
+        aria-label="Mobil ana gezinme"
+        className="sm:hidden fixed left-0 right-0 bottom-0 z-40 border-t border-border bg-surface-raised px-3 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-card-lg"
+      >
+        <div className="grid grid-cols-3 gap-2">
+          <BottomNavLink to="/dashboard" active={onDashboard} icon="campaigns">
+            Kampanyalar
+          </BottomNavLink>
+          <BottomNavLink to="/accounts" active={onAccounts} icon="accounts">
+            Hesaplar
+          </BottomNavLink>
+          <BottomNavLink to="/admin" active={onAdmin} icon="system">
+            Sistem
+          </BottomNavLink>
+        </div>
+      </nav>
     </div>
   );
 }
@@ -101,6 +123,71 @@ function TopNavLink({
     >
       {children}
     </Link>
+  );
+}
+
+function BottomNavLink({
+  to,
+  active,
+  icon,
+  children,
+}: {
+  to: string;
+  active: boolean;
+  icon: 'campaigns' | 'accounts' | 'system';
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'h-12 rounded-md flex flex-col items-center justify-center gap-1 text-[12px] font-medium',
+        'transition-colors duration-150',
+        active ? 'bg-accent-tint text-accent' : 'text-ink-muted hover:bg-surface-sunken',
+      )}
+    >
+      <BottomNavIcon name={icon} />
+      <span>{children}</span>
+    </Link>
+  );
+}
+
+function BottomNavIcon({ name }: { name: 'campaigns' | 'accounts' | 'system' }) {
+  if (name === 'campaigns') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <path
+          d="M3 5.5h12M3 9h12M3 12.5h7M4.5 3h9A1.5 1.5 0 0 1 15 4.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+  if (name === 'accounts') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <path
+          d="M3.5 13.5C3.5 11.7 5.7 10.4 9 10.4s5.5 1.3 5.5 3.1M9 8.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path
+        d="M3 4h12M3 9h12M3 14h12M5 4v10M9 4v10M13 4v10"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
