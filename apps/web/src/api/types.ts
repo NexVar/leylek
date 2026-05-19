@@ -123,14 +123,11 @@ export type NotificationStatus = 'pending' | 'approved' | 'rejected';
 
 /**
  * The decision payload the optimizer-agent wrote when emitting the
- * proposal. We parse it lazily — gateway hands `payloadJson` as a string
- * to keep the contract stable across schema iterations.
+ * proposal. Stored shape matches `OptimizerDecision` directly — gateway's
+ * `NotificationPayloadSchema` is a discriminated union on `action`. We
+ * parse lazily because `payloadJson` is a string on the wire.
  */
-export interface NotificationPayload {
-  decision: OptimizerDecision;
-  /** Optional pre-rendered Turkish summary line. Falls back to `decision.reason`. */
-  summary?: string;
-}
+export type NotificationPayload = OptimizerDecision;
 
 export interface NotificationRecord {
   id: number;

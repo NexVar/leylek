@@ -34,8 +34,8 @@ function parsePayload(raw: string): NotificationPayload | null {
 
 function summaryOf(record: GlobalNotificationRecord): string {
   const p = parsePayload(record.payloadJson);
-  if (!p) return 'Ajan gerekçesi okunamadı.';
-  return p.summary ?? p.decision.reason;
+  if (!p || !('reason' in p)) return 'Ajan gerekçesi okunamadı.';
+  return p.reason;
 }
 
 /**
