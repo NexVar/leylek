@@ -15,9 +15,13 @@ GOOGLE_ADS_BASE_URL = "https://leylek-google-ads-mock.batuhanbayazitt.workers.de
 GOOGLE_ADS_OAUTH_URL = "https://leylek-google-ads-mock.batuhanbayazitt.workers.dev"
 META_ADS_BASE_URL = "https://leylek-meta-ads-mock.batuhanbayazitt.workers.dev"
 
-# Cron — every 15 minutes in production
+# Cron — every 5 minutes. The drift step (see src/drift.ts) nudges every
+# active ad's mock-served metrics upward each tick so the dashboard numbers
+# change visibly during a demo session. The subsequent ingest + aggregate
+# pulls those new totals into D1 the same way real production would after
+# Google/Meta refresh their side.
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["*/5 * * * *"]
 
 [[d1_databases]]
 binding = "DB"

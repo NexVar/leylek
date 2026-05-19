@@ -33,6 +33,13 @@ import { Hono } from 'hono';
 // import keeps Wrangler's per-worker bundling happy. See file-level TODO above.
 import { makeAdPlatformClient } from '../../publisher-agent/src/clients/make-client';
 
+import {
+  DRIFT_DEMO_CUSTOMER_ID,
+  type DriftableAd,
+  type DriftOutcome,
+  driftAds,
+  externalAdIdTail,
+} from './drift';
 import type { Env } from './env';
 
 /**
@@ -93,6 +100,13 @@ async function runCron(env: Env): Promise<void> {
     metaAdsBaseUrl: env.META_ADS_BASE_URL,
   });
 
+  // Step 0 — live drift. Bump every active ad's mock-served metrics
+  // upward a touch so the demo dashboard's numbers change when the user
+  // reloads. The subsequent per-campaign refresh picks the new totals up
+  // via `client.fetchMetrics` and aggregates them into D1 as usual.
+  const driftSummary = await runDrift(env);
+  console.log('[analytics-worker] drift complete', driftSummary);
+
   const db = drizzle(env.DB, { schema });
   const activeCampaigns = await db
     .select({ id: schema.campaigns.id })
@@ -122,6 +136,53 @@ async function runCron(env: Env): Promise<void> {
     okCount,
     failCount,
   });
+}
+
+/**
+ * Drift the `gads:metrics:*` record for every active ad before the cron's
+ * regular ingest step. Skips paused / zero-metric ads — see `drift.ts` for
+ * the rationale on each guard.
+ */
+async function runDrift(
+  env: Env,
+): Promise<{ total: number; drifted: number; skipped: number; missing: number }> {
+  const db = drizzle(env.DB, { schema });
+
+  // Pull only active ads that we can actually drive — we need a
+  // `googleAdId` to compose the KV key. (Meta ads write to a different
+  // KV namespace prefix; drifting them is not in scope for this cron.)
+  const rows = await db
+    .select({
+      id: schema.ads.id,
+      googleAdId: schema.ads.googleAdId,
+    })
+    .from(schema.ads)
+    .where(eq(schema.ads.status, 'active'));
+
+  const driftable: DriftableAd[] = [];
+  for (const row of rows) {
+    if (!row.googleAdId) continue;
+    driftable.push({ adId: row.id, externalAdId: externalAdIdTail(row.googleAdId) });
+  }
+
+  if (driftable.length === 0) {
+    return { total: 0, drifted: 0, skipped: 0, missing: 0 };
+  }
+
+  // Single demo customer for now — when per-user OAuth credentials replace
+  // the placeholder (PRD §17 Faz 2), this widens to a per-ad lookup keyed
+  // on `campaigns.user_id -> connected_accounts.external_id`.
+  const outcomes: DriftOutcome[] = await driftAds(env.KV, DRIFT_DEMO_CUSTOMER_ID, driftable);
+
+  let drifted = 0;
+  let skipped = 0;
+  let missing = 0;
+  for (const outcome of outcomes) {
+    if (outcome.status === 'drifted') drifted++;
+    else if (outcome.status === 'skipped_zero') skipped++;
+    else missing++;
+  }
+  return { total: outcomes.length, drifted, skipped, missing };
 }
 
 // ---------------------------------------------------------------------------
