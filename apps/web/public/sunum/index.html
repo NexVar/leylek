@@ -334,7 +334,7 @@
     --ease-fluid: cubic-bezier(0.2, 0.7, 0.2, 1);
   }
 
-  html { font-size: 20px; }
+  html { font-size: 24px; }
   body {
     font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     background: var(--surface);
@@ -347,7 +347,7 @@
   .slide {
     background: var(--surface) !important;
     color: var(--ink);
-    padding: 5.2rem 4rem 3rem;
+    padding: 4.5rem 4rem 2.5rem;
   }
   .slide-bg { background: var(--surface); }
   .bg-0, .bg-1, .bg-2, .bg-3, .bg-4, .bg-5 { background: var(--surface) !important; }
@@ -425,7 +425,7 @@
     color: var(--accent);
     text-transform: none;
     letter-spacing: 0;
-    font-size: .62rem;
+    font-size: .7rem;
     font-weight: 500;
   }
   .bdot { background: var(--accent); }
@@ -436,14 +436,14 @@
     color: var(--ink);
   }
   h1 {
-    font-size: clamp(2.1rem, 5vw, 3.2rem);
+    font-size: clamp(2.4rem, 5.5vw, 3.8rem);
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1.08;
   }
   h2 {
-    font-size: clamp(1.45rem, 3vw, 2.05rem);
+    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
     font-weight: 700;
-    line-height: 1.18;
+    line-height: 1.15;
   }
   h1 .hl, h2 .hl {
     color: var(--accent);
@@ -452,7 +452,7 @@
   }
   .lead {
     color: var(--ink-muted);
-    font-size: .92rem;
+    font-size: 1rem;
     line-height: 1.6;
   }
   .accent {
@@ -588,7 +588,8 @@
   .dot:hover:not(.ac) { background: var(--ink-subtle); }
 
   @media (max-width: 860px) {
-    .slide { padding: 5rem 1.25rem 4.25rem; }
+    html { font-size: 20px; }
+    .slide { padding: 4.5rem 1.25rem 3.5rem; }
     .g3, .modes { grid-template-columns: 1fr; }
     .g2, .dtable { grid-template-columns: 1fr; }
     .steps { flex-direction: column; }
@@ -598,8 +599,8 @@
     .aa { transform: rotate(90deg); }
   }
   @media (max-width: 500px) {
-    html { font-size: 18px; }
-    .slide { padding: 4.75rem 1rem 4.25rem; }
+    html { font-size: 17px; }
+    .slide { padding: 4.25rem 1rem 3.5rem; }
     .ch { padding: 0 .8rem; }
     .brd { font-size: 1.1rem; }
     .brand-mark { width: 1.35rem; height: 1.35rem; }
