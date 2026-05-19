@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Leylek — Otonom Dijital Pazarlama Platformu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; width: 100%; overflow: hidden; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #070C14;
+    color: #fff;
+  }
+  
+  .track {
+    display: flex;
+    height: 100vh;
+    transition: transform .7s cubic-bezier(.76, 0, .24, 1);
+  }
+  
+  .slide {
+    min-width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 3rem 4rem;
+  }
+  
+  .slide-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  
+  .bg-0 { background: linear-gradient(135deg, #070C14, #0F1729 40%, #15203a); }
+  .bg-1 { background: linear-gradient(160deg, #0F1729, #1A2540); }
+  .bg-2 { background: linear-gradient(135deg, #070C14, #0F1729); }
+  .bg-3 { background: linear-gradient(160deg, #0F1729, #0F1B30); }
+  .bg-4 { background: linear-gradient(135deg, #070C14, #0F1729); }
+  .bg-5 { background: linear-gradient(160deg, #0F1729, #1A2540); }
+  
+  /* Orbs */
+  .o1, .o2, .o3 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .o1 { width: 500px; height: 500px; background: rgba(232,93,74,.1); top: -10%; right: -5%; }
+  .o2 { width: 350px; height: 350px; background: rgba(212,168,83,.05); bottom: -15%; left: -5%; }
+  .o3 { width: 220px; height: 220px; background: rgba(232,93,74,.04); top: 40%; left: 60%; }
+  
+  /* Grid */
+  .gp {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 70% 60% at 40% 50%, black 30%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 40% 50%, black 30%, transparent 70%);
+  }
+  
+  /* Content wrapper */
+  .cw {
+    position: relative;
+    z-index: 1;
+    max-width: 850px;
+    width: 100%;
+  }
+  
+  .cw.c { text-align: center; }
+  .cw.narrow { max-width: 680px; }
+  
+  /* Chrome */
+  .ch {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 2rem;
+    background: linear-gradient(180deg, rgba(7,12,20,.85), transparent);
+    pointer-events: none;
+  }
+  .ch * { pointer-events: auto; }
+  .brd { font-family: 'Outfit', sans-serif; font-size: .7rem; font-weight: 800; letter-spacing: .05em; color: rgba(255,255,255,.2); }
+  .brd em { font-style: normal; color: #E85D4A; }
+  .cr { display: flex; align-items: center; gap: 1rem; }
+  .tm {
+    font-family: 'Outfit', sans-serif;
+    font-size: .78rem; font-weight: 700;
+    padding: .2rem .6rem; border-radius: .35rem;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.05);
+    min-width: 54px; text-align: center;
+  }
+  .tm.ur { color: #E85D4A; border-color: rgba(232,93,74,.25); background: rgba(232,93,74,.1); }
+  .pn { font-family: 'Outfit', sans-serif; font-size: .6rem; font-weight: 600; color: rgba(255,255,255,.15); letter-spacing: .08em; }
+  .pn em { font-style: normal; color: rgba(255,255,255,.3); }
+  
+  .sn {
+    font-family: 'Outfit', sans-serif;
+    font-size: .55rem; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: rgba(255,255,255,.07);
+    margin-bottom: .5rem;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Typography */
+  .badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .2rem .75rem; border-radius: 100px;
+    font-size: .58rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    background: rgba(232,93,74,.1);
+    border: 1px solid rgba(232,93,74,.18);
+    color: #E85D4A;
+    margin-bottom: 1rem;
+  }
+  .bdot { width: 4px; height: 4px; border-radius: 50%; background: #E85D4A; }
+  
+  h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: -.035em;
+    margin-bottom: .4rem;
+  }
+  h1 .hl {
+    background: linear-gradient(135deg, #E85D4A, #F07865);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.3rem, 3vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -.025em;
+    margin-bottom: .5rem;
+  }
+  h2 .hl { color: #E85D4A; }
+  
+  .lead {
+    font-size: .92rem;
+    color: rgba(255,255,255,.5);
+    line-height: 1.6;
+    max-width: 540px;
+  }
+  
+  .accent {
+    width: 60px; height: 3px;
+    background: #E85D4A;
+    border-radius: 2px;
+    margin: 1rem 0;
+  }
+  
+  .btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .6rem 1.4rem; border-radius: 100px;
+    background: #E85D4A; color: #fff;
+    text-decoration: none; font-weight: 700; font-size: .78rem;
+    border: none; cursor: pointer;
+    transition: all .2s ease;
+    margin-top: .6rem;
+  }
+  .btn:hover { background: #C94432; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(232,93,74,.2); }
+  .btn svg { width: 14px; height: 14px; transition: transform .2s; }
+  .btn:hover svg { transform: translateX(3px); }
+  
+  /* Cards */
+  .card { 
+    padding: 1rem 1.1rem;
+    border-radius: .7rem;
+    background: rgba(255,255,255,.02);
+    border: 1px solid rgba(255,255,255,.04);
+  }
+  .card h3 { font-family: 'Outfit', sans-serif; font-size: .8rem; font-weight: 700; margin-bottom: .1rem; }
+  .card p { font-size: .7rem; color: rgba(255,255,255,.5); line-height: 1.4; }
+  .ci { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .ci svg { width: 15px; height: 15px; }
+  .ci.c { background: rgba(232,93,74,.1); } .ci.c svg { color: #E85D4A; }
+  .ci.g { background: rgba(212,168,83,.05); } .ci.g svg { color: #D4A853; }
+  
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; max-width: 580px; margin-top: 1rem; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .55rem; max-width: 680px; margin-top: 1rem; }
+  
+  /* Steps */
+  .steps { display: flex; gap: .6rem; margin-top: 1rem; max-width: 750px; }
+  .st { flex: 1; padding: 1rem; border-radius: .65rem; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.04); position: relative; }
+  .st:not(:last-child)::after { content: '→'; position: absolute; right: -.4rem; top: 50%; transform: translateY(-50%); color: #E85D4A; opacity: .2; font-size: .85rem; }
+  .st .no { font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 900; color: #E85D4A; opacity: .1; margin-bottom: .3rem; }
+  .st h4 { font-size: .7rem; font-weight: 700; margin-bottom: .1rem; }
+  .st p { font-size: .62rem; color: rgba(255,255,255,.5); line-height: 1.35; }
+  
+  /* Architecture flow */
+  .af { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; justify-content: center; margin: 1rem 0; }
+  .ae { padding: .35rem .65rem; border-radius: .4rem; font-size: .6rem; font-weight: 600; white-space: nowrap; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.055); }
+  .ae.h { background: #E85D4A; border-color: #E85D4A; }
+  .ae.a { background: rgba(232,93,74,.08); border-color: rgba(232,93,74,.12); color: #E85D4A; }
+  .ae.i { background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.03); color: rgba(255,255,255,.4); }
+  .aa { color: rgba(255,255,255,.08); font-size: .75rem; }
+  
+  .wg { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; max-width: 600px; margin: .6rem auto 0; }
+  .wc { padding: .65rem .8rem; border-radius: .55rem; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.035); }
+  .wc h4 { font-family: 'Outfit', sans-serif; font-size: .68rem; font-weight: 700; margin-bottom: .05rem; }
+  .wc p { font-size: .58rem; color: rgba(255,255,255,.5); line-height: 1.3; }
+  .wc .tg { display: inline-block; font-size: .45rem; padding: .05rem .3rem; border-radius: 3px; background: rgba(255,255,255,.03); color: rgba(255,255,255,.2); margin-top: .15rem; text-transform: uppercase; letter-spacing: .03em; }
+  
+  /* Modes */
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; max-width: 560px; margin-top: 1rem; }
+  .mb { padding: 1.3rem; border-radius: .8rem; }
+  .mb.a { background: linear-gradient(135deg, rgba(232,93,74,.07), transparent); border: 1px solid rgba(232,93,74,.12); }
+  .mb.b { background: rgba(255,255,255,.015); border: 1px solid rgba(255,255,255,.05); }
+  .mb .mi { font-size: 1.1rem; margin-bottom: .4rem; }
+  .mb h3 { font-family: 'Outfit', sans-serif; font-size: .95rem; font-weight: 700; margin-bottom: .2rem; }
+  .mb p { font-size: .7rem; color: rgba(255,255,255,.5); line-height: 1.45; margin-bottom: .5rem; }
+  .mt { display: inline-block; padding: .12rem .55rem; border-radius: 100px; font-size: .52rem; font-weight: 600; }
+  .mb.a .mt { background: rgba(232,93,74,.1); color: #E85D4A; }
+  .mb.b .mt { background: rgba(255,255,255,.04); color: rgba(255,255,255,.4); }
+  
+  .pb { position: fixed; bottom: 0; left: 0; height: 2px; background: #E85D4A; z-index: 200; transition: width .6s cubic-bezier(.76,0,.24,1); }
+  
+  .nv { position: fixed; top: 50%; transform: translateY(-50%); z-index: 99; }
+  .nl { left: 1rem; } .nr { right: 1rem; }
+  .nb {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,.05);
+    background: rgba(255,255,255,.02);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    color: rgba(255,255,255,.3);
+    font-size: .95rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nb:hover { background: rgba(255,255,255,.06); color: #fff; border-color: rgba(255,255,255,.12); }
+  .nb.h { opacity: 0; pointer-events: none; }
+  
+  .dots {
+    position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+    display: flex; gap: .35rem; z-index: 99;
+    padding: .4rem .7rem; border-radius: 100px;
+    background: rgba(0,0,0,.35);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.1); cursor: pointer; border: none; transition: .35s; }
+  .dot.ac { background: #E85D4A; width: 18px; border-radius: 3px; }
+  .dot:hover:not(.ac) { background: rgba(255,255,255,.2); }
+  
+  /* Tags */
+  .tag {
+    display: inline-flex; align-items: center; gap: .25rem;
+    padding: .12rem .45rem; border-radius: 4px;
+    background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.035);
+    color: rgba(255,255,255,.4); font-size: .5rem;
+  }
+  
+  .sbox { padding: 1rem; border-radius: .7rem; background: linear-gradient(135deg, rgba(232,93,74,.06), transparent); border: 1px solid rgba(232,93,74,.1); }
+  .sbox h3 { font-family: 'Outfit', sans-serif; font-size: .85rem; font-weight: 700; margin-bottom: .15rem; }
+  .sbox p { font-size: .65rem; color: rgba(255,255,255,.5); line-height: 1.4; }
+  
+  .dtable { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; max-width: 600px; margin: .7rem auto 0; }
+  .dc { padding: .8rem; border-radius: .6rem; background: rgba(255,255,255,.015); border: 1px solid rgba(255,255,255,.035); }
+  .dc h3 { font-family: 'Outfit', sans-serif; font-size: .75rem; font-weight: 700; text-align: center; margin-bottom: .1rem; }
+  .dc p { font-size: .6rem; color: rgba(255,255,255,.5); }
+  
+  /* Animations */
+  [data-anim] { opacity: 0; }
+  .slide.go [data-anim] { animation: fi .6s ease forwards; }
+  .slide.go [data-anim="s"] { animation: si .5s ease forwards; }
+  .slide.go [data-anim="l"] { animation: li .5s ease forwards; }
+  .d1 { animation-delay: .2s !important; }
+  .d2 { animation-delay: .4s !important; }
+  .d3 { animation-delay: .6s !important; }
+  .d4 { animation-delay: .8s !important; }
+  .d5 { animation-delay: 1s !important; }
+  
+  @keyframes fi { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes si { from { opacity: 0; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
+  @keyframes li { from { width: 0; } to { width: 60px; } }
+  
+  @media (max-width: 860px) {
+    .slide { padding: 2.5rem 1.5rem; }
+    .g3, .modes { grid-template-columns: 1fr; }
+    .steps { flex-direction: column; }
+    .st::after { display: none; }
+    .wg { grid-template-columns: 1fr 1fr; }
+    .dtable { grid-template-columns: 1fr; }
+    .af { flex-direction: column; }
+    .aa { transform: rotate(90deg); }
+    .g2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 500px) {
+    .slide { padding: 2rem 1rem; }
+    .wg { grid-template-columns: 1fr; }
+    .cr { gap: .5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pb" id="pb"></div>
+
+<div class="ch">
+  <div class="brd">LEYLEK<em>.</em></div>
+  <div class="cr">
+    <div class="tm" id="tm">05:00</div>
+    <div class="pn"><em id="cp">01</em> / 09</div>
+  </div>
+</div>
+
+<nav class="nv nl"><button class="nb" id="pr">‹</button></nav>
+<nav class="nv nr"><button class="nb" id="nx">›</button></nav>
+<div class="dots" id="ds"></div>
+
+<div class="track" id="tr">
+
+<!-- 0: HERO -->
+<div class="slide bg-0 go" data-i="0">
+  <div class="slide-bg"><div class="o1"></div><div class="o2"></div><div class="gp"></div></div>
+  <div class="sn">Intro</div>
+  <div class="cw c">
+    <div class="badge"><span class="bdot"></span> v1.1.0 &bull; Cloudflare + Gemini 2.5 Flash</div>
+    <h1>M&uuml;şteriyi<br><span class="hl">Leylek</span> Getirir</h1>
+    <p class="lead" style="margin:0 auto">KOBİ ve e-ticaret satıcıları i&ccedil;in otonom dijital pazarlama platformu. Meta Ads + Google Ads kampanyalarını yapay zek&acirc;yla &uuml;retir, yayınlar ve optimize eder.</p>
+    <div class="accent" style="margin:1rem auto"></div>
+    <button class="btn" onclick="g(1)">Sunumu Başlat <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+  </div>
+</div>
+
+<!-- 1: PROBLEM -->
+<div class="slide bg-1" data-i="1">
+  <div class="slide-bg"><div class="o1" style="right:auto;left:-10%;top:-5%"></div><div class="o2" style="left:auto;right:-5%;bottom:5%"></div><div class="gp"></div></div>
+  <div class="sn">01 / Problem &amp; &Ccedil;&ouml;z&uuml;m</div>
+  <div class="cw">
+    <div class="badge">Problem</div>
+    <h2>KOBİ'ler Neden <span class="hl">Zarar Ediyor</span></h2>
+    <p class="lead" style="margin-bottom:0">T&uuml;rkiye'deki KOBİ ve e-ticaret satıcıları reklam y&ouml;netiminde &uuml;&ccedil; temel acı yaşıyor.</p>
+    <div class="g3">
+      <div class="card" style="border-left:3px solid #E85D4A"><h3>🚫 Karmaşıklık</h3><p>Meta + Google Ads aray&uuml;zleri &ccedil;ok karışık. Esnaf "boost post"tan ileri gidemiyor.</p></div>
+      <div class="card" style="border-left:3px solid #D4A853"><h3>⏱️ Hız</h3><p>Reklamın zarar ettiğini anlamak 3-7 g&uuml;n. G&uuml;nl&uuml;k 500-2000 TL boşa gider.</p></div>
+      <div class="card" style="border-left:3px solid #E85D4A"><h3>💰 Maliyet</h3><p>Ajansa giden fatura 8-25 bin TL/ay. KOBİ i&ccedil;in katlanılabilir değil.</p></div>
+    </div>
+    <div style="margin-top:.6rem;padding:.8rem 1rem;border-radius:.65rem;background:linear-gradient(135deg,rgba(232,93,74,.06),rgba(232,93,74,.01));border:1px solid rgba(232,93,74,.12);max-width:620px">
+      <div style="display:flex;gap:.7rem"><div style="font-size:1.2rem;flex-shrink:0">💡</div><div><h3 style="font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:700;color:#E85D4A">Leylek &Ccedil;&ouml;z&uuml;m&uuml;</h3><p style="font-size:.68rem;color:rgba(255,255,255,.5);line-height:1.4;margin-top:.05rem">3 ayrı AI ajanı. 7/24 uyanık, hata yapmaz, ajansın 10'da 1'i maliyet. URL gir, b&uuml;t&ccedil;e belirle, gerisi otonom.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2: HOW -->
+<div class="slide bg-2" data-i="2">
+  <div class="slide-bg"><div class="o1" style="width:400px;height:400px;top:5%;right:-8%"></div><div class="gp"></div></div>
+  <div class="sn">02 / Nasıl &Ccedil;alışır</div>
+  <div class="cw">
+    <div class="badge">AI Agents</div>
+    <h2>M&uuml;şteriyi <span class="hl">3 Ajan</span> Getirir</h2>
+    <p class="lead">Her ajan tek bir işte uzman. Birlikte kampanyaları u&ccedil;tan uca y&ouml;netirler.</p>
+    <div class="steps">
+      <div class="st"><div class="no">01</div><h4>📝 Content Agent</h4><p>URL analizi &rarr; Gemini ile 3 varyant (Agresif / Hikaye / Teknik) + persona</p></div>
+      <div class="st"><div class="no">02</div><h4>📤 Publisher Agent</h4><p>Port + Adapter. Google Ads v17 / Meta v21 API. Tek kod, iki platform.</p></div>
+      <div class="st"><div class="no">03</div><h4>⚡ Optimizer Agent</h4><p>6 saatte bir karar: PAUSE / KEEP / REALLOCATE. T&uuml;rk&ccedil;e gerek&ccedil;e.</p></div>
+    </div>
+    <div class="g2" style="margin-top:.5rem">
+      <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><h3>📈 Analytics Worker</h3><p>15 dk'da bir metrik &ccedil;eker, D1'e yazar. Campaign DO atomic state.</p></div>
+      <div class="card"><div class="ci g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg></div><h3>🤝 Co-Pilot</h3><p>Ajan &ouml;nerir, sen onayla. E-posta veya uygulama &uuml;zerinden.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3: SANDBOX -->
+<div class="slide bg-3" data-i="3">
+  <div class="slide-bg"><div class="o2" style="width:400px;height:400px;top:20%;right:-10%"></div><div class="gp"></div></div>
+  <div class="sn">03 / Neden Sandbox?</div>
+  <div class="cw c">
+    <div class="badge">Critical</div>
+    <h2>Neden <span class="hl">Mock / Sandbox</span> Kullandık?</h2>
+    <p class="lead" style="margin:0 auto">Ger&ccedil;ek API'ler hackathon s&uuml;resine sığmıyor. &Ccedil;&ouml;z&uuml;m: <strong>birebir sandbox</strong>.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;max-width:660px;margin:.8rem auto 0;text-align:left">
+      <div style="display:flex;flex-direction:column;gap:.4rem">
+        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(232,93,74,.03);border-left:3px solid #E85D4A"><h4 style="font-family:'Outfit',sans-serif;font-size:.68rem;font-weight:700">⏳ Google Ads Standard Access</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Developer token 1-2 hafta. Test anında ama ger&ccedil;ek veri i&ccedil;in Standard gerekli.</p></div>
+        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(212,168,83,.03);border-left:3px solid #D4A853"><h4 style="font-family:'Outfit',sans-serif;font-size:.68rem;font-weight:700">⏳ Meta App Review</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Marketing API izinleri 2-4 hafta. Hackathon'a sığmaz.</p></div>
+        <div style="padding:.7rem .9rem;border-radius:.6rem;background:rgba(232,93,74,.03);border-left:3px solid #E85D4A"><h4 style="font-family:'Outfit',sans-serif;font-size:.68rem;font-weight:700">🚫 Ban Riski</h4><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.3;margin-top:.05rem">Ger&ccedil;ek hesaplarla test = ban. Demo g&uuml;venli olmalı.</p></div>
+      </div>
+      <div class="sbox"><div style="font-size:1.6rem;margin-bottom:.3rem">🎯</div><h3>Birebir Sandbox</h3><p>Aynı response, aynı hata kodları, aynı auth. Ger&ccedil;ek Cloudflare Worker. Prod'a geçiş: tek env.</p><div style="margin-top:.35rem;display:flex;gap:.2rem;flex-wrap:wrap"><span class="tag">✅ Campaign CRUD</span><span class="tag">✅ Budget</span><span class="tag">✅ Metrics</span><span class="tag">✅ Error Codes</span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 4: MOCK -->
+<div class="slide bg-4" data-i="4">
+  <div class="slide-bg"><div class="o1" style="width:40vw;height:40vw;top:-10vw;left:-5vw"></div><div class="gp"></div></div>
+  <div class="sn">04 / Mock API</div>
+  <div class="cw c">
+    <div class="badge">Technical Deep Dive</div>
+    <h2>Mock API <span class="hl">Mimarisi</span></h2>
+    <p class="lead" style="margin:0 auto">Production code + mock workers = aynı interface. Ger&ccedil;ek Worker'lar.</p>
+    <div class="g2" style="max-width:600px;margin:.7rem auto 0">
+      <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm.12 3.84c2.64 0 4.56.96 6.12 2.88l-2.76 2.76c-.84-1.08-1.92-1.68-3.36-1.68-2.04 0-3.6 1.44-4.08 3.48l-.12.48c-.72 2.64.96 5.28 3.6 6.12 2.64.84 5.28-.84 6.12-3.48h-3.6v-3.48h8.4v.36c0 3.96-2.4 7.44-6.24 8.64-3.84 1.2-8.16-.24-10.32-3.72-2.16-3.48-1.56-7.92 1.32-10.68 1.8-1.8 4.08-2.64 6.48-2.64z"/></svg></div><h3>google-ads-mock</h3><p>Google Ads REST v17 em&uuml;lasyonu. KV'de <code>gads:*</code>.</p></div>
+      <div class="card"><div class="ci g"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.065 8.344c-.093.763-.564 1.446-1.288 1.868-1.026.596-2.27.557-3.105-.053-.452-.33-.64-.783-.64-1.358 0-.477.186-.893.537-1.202.484-.424 1.128-.673 1.795-.673.678 0 1.313.258 1.796.683.31.287.495.66.535 1.06.007.074.01.148.008.223.066.077.12.165.162.259.113.25.146.523.095.787-.019.089-.046.177-.08.262.083.004.162.023.235.057.18.085.295.252.295.447 0 .118-.04.23-.113.318-.073.088-.176.145-.29.16-.02.003-.04.005-.06.008.196.286.285.62.257.96-.046.577-.34 1.088-.823 1.43-.491.348-1.114.538-1.758.538-.562 0-1.093-.153-1.562-.45.157.563.489 1.033.925 1.378.404.32.886.53 1.393.608.192.03.387.045.582.045.186 0 .372-.018.554-.054.01-.002.02-.004.03-.006-.036.09-.08.178-.133.26-.29.454-.777.775-1.328.875-.132.024-.267.036-.402.036-.268 0-.53-.052-.775-.148-.96-.377-1.65-1.25-1.885-2.26-.01-.043-.02-.087-.027-.13-.256.012-.515-.004-.774-.047-1.028-.17-1.87-.84-2.29-1.74-.702.215-1.438.354-2.163.416-.626.054-1.247.05-1.855-.014.226.822.734 1.525 1.436 1.99.445.294.958.485 1.494.556.186.025.373.037.56.037.497 0 .98-.086 1.428-.247.033-.012.065-.026.097-.04.016.09.038.18.068.267.08.233.2.447.352.637-.62.332-1.314.523-2.035.523-.528 0-1.042-.105-1.527-.314-.916-.395-1.601-1.153-1.966-2.102-.112-.29-.185-.592-.22-.897-.205-.028-.402-.073-.588-.134-.976-.322-1.7-1.16-1.975-2.19-.13-.487-.145-.988-.058-1.47.12-.663.43-1.262.88-1.736.452-.478 1.002-.829 1.601-1.028.235-.078.478-.13.726-.158.14-.066.285-.122.434-.168.238-.074.482-.125.732-.154.018-.003.036-.004.054-.005.657-.11 1.323-.07 1.938.105.273-1.02.814-1.938 1.585-2.66.665-.624 1.444-1.086 2.292-1.374.42-.143.855-.24 1.3-.292.624-.072 1.253-.062 1.866.025.293.043.578.105.855.185.057-.053.122-.094.196-.12.16-.058.336-.07.51-.03.174.04.326.137.428.275.103.138.152.31.14.484-.01.174-.08.338-.194.464-.17.187-.43.298-.706.302-.164.002-.317-.038-.455-.11-.012.022-.026.042-.04.062.344.19.653.435.922.73.275.3.503.636.68.998.088.18.162.365.224.556.26.2.491.43.693.683.202.254.37.53.502.822.065.143.12.29.167.44.396.12.765.3 1.094.535.72.512 1.23 1.263 1.46 2.106z"/></svg></div><h3>meta-ads-mock</h3><p>Meta Marketing v21.0 em&uuml;lasyonu. KV'de <code>meta:*</code>.</p></div>
+    </div>
+    <div class="g2" style="max-width:600px;margin:.4rem auto 0">
+      <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></div><h3>Factory Pattern</h3><p><code>makeAdPlatformClient()</code> &rarr; <code>*_BASE_URL</code> env ile sandbox/prod.</p></div>
+      <div class="card"><div class="ci g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><h3>Deploy</h3><p>7 Worker + 1 Pages, GitHub Actions CI/CD.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- 5: FULL STACK -->
+<div class="slide bg-5" data-i="5">
+  <div class="slide-bg"><div class="o2" style="width:50vw;height:50vw;top:20%;right:-10vw"></div><div class="gp"></div></div>
+  <div class="sn">05 / Full Stack</div>
+  <div class="cw c">
+    <div class="badge">Technical Deep Dive</div>
+    <h2>Tam Stack <span class="hl">Teknolojiler</span></h2>
+    <p class="lead" style="margin:0 auto">Cloudflare full-stack: D1 + Drizzle, Auth, CI/CD.</p>
+    <div class="g3" style="max-width:640px;margin:.7rem auto 0">
+      <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div><h3>D1 + Drizzle</h3><p>Serverless SQLite, 7 tablo.</p></div>
+      <div class="card"><div class="ci g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Google OAuth</h3><p>+ Magic Link. JWT cookie.</p></div>
+      <div class="card"><div class="ci c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><h3>CI/CD</h3><p>GitHub Actions otomasyon.</p></div>
+    </div>
+    <div style="margin-top:.5rem;padding:.7rem .9rem;border-radius:.6rem;background:linear-gradient(135deg,rgba(212,168,83,.05),transparent);border:1px solid rgba(212,168,83,.07);max-width:640px;margin-left:auto;margin-right:auto">
+      <div style="display:flex;gap:.6rem"><div style="font-size:1.1rem;flex-shrink:0">🔄</div><div><h3 style="font-family:'Outfit',sans-serif;font-size:.72rem;font-weight:700">Analysis Pipeline</h3><p style="font-size:.6rem;color:rgba(255,255,255,.5);line-height:1.35;margin-top:.05rem"><strong>URL</strong> &rarr; Content Agent &rarr; 3 varyant &rarr; Publisher Agent &rarr; Analytics Worker (15dk) &rarr; Optimizer Agent (6 saat) &rarr; <strong>PAUSE / KEEP / REALLOCATE</strong>. T&uuml;rk&ccedil;e gerek&ccedil;e.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 6: DEMO -->
+<div class="slide bg-1" data-i="6">
+  <div class="slide-bg"><div class="o1" style="width:350px;height:350px;top:-5%;left:40%"></div><div class="gp"></div></div>
+  <div class="sn">06 / Demo</div>
+  <div class="cw c">
+    <div class="badge">Demo Reliability</div>
+    <h2>Deterministic <span class="hl">Demo Seed</span></h2>
+    <p class="lead" style="margin:0 auto">Her demo aynı sonucu &uuml;retir. Mulberry32 PRNG ile byte-stable.</p>
+    <div class="dtable">
+      <div class="dc"><h3>Demo &Uuml;r&uuml;n</h3><p style="text-align:center;margin-top:.05rem">"Demlik Pro &mdash; Akıllı &Ccedil;ay Cihazı"</p><div style="margin-top:.3rem;display:grid;gap:.2rem;font-size:.55rem"><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 1 Agresif</span><span style="color:#E85D4A">ZARARDA 183 CPA</span></div><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 2 Hikaye</span><span style="color:#4ADE80">KARLI 15 CPA</span></div><div style="display:flex;justify-content:space-between;padding:.12rem .3rem;border-radius:3px;background:rgba(255,255,255,.03)"><span>Ad 3 Teknik</span><span style="color:#D4A853">MARJİNAL 40 CPA</span></div></div></div>
+      <div class="dc"><h3>60 Saniyelik Demo</h3><div style="margin-top:.3rem;display:flex;flex-direction:column;gap:.2rem;font-size:.54rem"><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">0-10s</span><span>Login &rarr; Dashboard</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">10-20s</span><span>"Şimdi Optimize Et"</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">20-45s</span><span>Gemini reasoning canlı</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">45-55s</span><span>Publisher Agent aksiyon</span></div><div style="display:flex;gap:.3rem"><span style="color:rgba(255,255,255,.4);min-width:1.6rem">55-60s</span><span>Ad 1 PAUSED</span></div></div></div>
+    </div>
+    <div style="margin-top:.4rem;padding:.6rem .9rem;border-radius:.55rem;background:linear-gradient(135deg,rgba(212,168,83,.04),transparent);border:1px solid rgba(212,168,83,.06);max-width:640px;margin-left:auto;margin-right:auto"><p style="font-size:.58rem;color:rgba(255,255,255,.5);line-height:1.35"><strong style="color:#D4A853">✨ Ger&ccedil;ek Zamanlı:</strong> Gemini reasoning + DO atomic + agent_logs persistence. Tek fark: external HTTP vs internal state. Flip 0 kod.</p></div>
+  </div>
+</div>
+
+<!-- 7: ARCHITECTURE -->
+<div class="slide bg-3" data-i="7">
+  <div class="slide-bg"><div class="o1" style="width:35vw;height:35vw;top:-8vw;left:-5vw"></div><div class="o2" style="width:25vw;height:25vw;right:-5vw;bottom:0"></div><div class="gp"></div></div>
+  <div class="sn">07 / Mimari</div>
+  <div class="cw c">
+    <div class="badge">Architecture</div>
+    <h2>7 Worker + <span class="hl">1 Durable Object</span></h2>
+    <p class="lead" style="margin:0 auto">Service Bindings ile haberleşen &ccedil;ok-ajanlı sistem. Tamamen serverless.</p>
+    <div class="af">
+      <span class="ae i">React Pages</span><span class="aa">/api/*</span>
+      <span class="ae h">gateway</span><span class="aa">⇄</span>
+      <span class="ae a">content-agent</span><span class="ae a">optimizer-agent</span>
+      <span class="ae a">publisher-agent</span><span class="ae a">analytics-worker</span>
+      <span class="aa">⇄</span><span class="ae i">google-ads-mock</span><span class="ae i">meta-ads-mock</span>
+    </div>
+    <div class="wg" style="margin:.5rem auto 0">
+      <div class="wc"><h4>🚪 Gateway</h4><p>API giriş, auth.</p><div class="tg">Hono v4</div></div>
+      <div class="wc"><h4>📝 Content Agent</h4><p>URL &rarr; 3 varyant</p><div class="tg">Gemini 2.5 Flash</div></div>
+      <div class="wc"><h4>⚡ Optimizer Agent</h4><p>6s karar d&ouml;ng&uuml;s&uuml;</p><div class="tg">Durable Object</div></div>
+      <div class="wc"><h4>📤 Publisher Agent</h4><p>Factory pattern</p><div class="tg">Port + Adapter</div></div>
+      <div class="wc"><h4>📈 Analytics Worker</h4><p>15dk cron</p><div class="tg">Cron Trigger</div></div>
+      <div class="wc"><h4>🧪 Mock Workers</h4><p>Google/Meta em&uuml;lasyonu</p><div class="tg">KV State</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 8: CTA -->
+<div class="slide bg-0" data-i="8">
+  <div class="slide-bg"><div class="o1" style="width:350px;height:350px;left:-8%;top:-5%"></div><div class="o2" style="width:300px;height:300px;right:-5%;bottom:0"></div><div class="gp"></div></div>
+  <div class="sn">08 / Canlı</div>
+  <div class="cw c">
+    <div class="badge">Final</div>
+    <h2>Hazır mısın?<br><span class="hl">Leylek</span> Canlıda</h2>
+    <p class="lead" style="margin:0 auto">Tamamen serverless, 7 Worker, 4 AI agent, 2 platform.</p>
+    <div class="accent" style="margin:1rem auto"></div>
+    <div>
+      <p style="color:rgba(255,255,255,.4);font-size:.72rem;margin-bottom:.35rem">leylek.nexvar.io</p>
+      <a href="https://leylek.nexvar.io" class="btn" target="_blank">leylek.nexvar.io <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    </div>
+  </div>
+</div>
+
+<!-- 9: CLOSING -->
+<div class="slide bg-0" data-i="9">
+  <div class="slide-bg"><div class="o1"></div><div class="o2"></div><div class="gp"></div></div>
+  <div class="sn">09 / Kapanış</div>
+  <div class="cw c">
+    <div style="font-size:3rem;margin-bottom:.6rem">🕊️</div>
+    <h2 style="font-size:clamp(1.6rem,3.5vw,2.6rem)">Siz arkanıza yaslanın,<br><span class="hl">m&uuml;şteriyi Leylek getirir</span></h2>
+    <p class="lead" style="margin:.6rem auto 0;max-width:400px">7/24 uyanık AI ajanlarınız. Siz uyurken satış yapar, zararı keser.</p>
+    <div class="accent" style="margin:1rem auto"></div>
+    <p style="color:rgba(255,255,255,.3);font-size:.65rem">NexVar &bull; 2026</p>
+  </div>
+</div>
+
+</div>
+
+<script>
+const tr=document.getElementById('tr'),sl=document.querySelectorAll('.slide'),pr=document.getElementById('pr'),nx=document.getElementById('nx'),ds=document.getElementById('ds'),cp=document.getElementById('cp'),pb=document.getElementById('pb');
+let cu=0,tt=sl.length;
+for(let i=0;i<tt;i++){const d=document.createElement('button');d.className='dot'+(i===0?' ac':'');d.setAttribute('aria-label','Slide '+(i+1));d.addEventListener('click',()=>g(i));ds.appendChild(d)}
+function g(i){
+  if(i<0||i>=tt)return;cu=i;
+  tr.style.transform='translateX(-'+(cu*100)+'vw)';
+  sl.forEach((s,j)=>{s.classList.toggle('go',j===cu)});
+  document.querySelectorAll('.dot').forEach((d,j)=>d.classList.toggle('ac',j===cu));
+  cp.textContent=String(cu+1).padStart(2,'0');
+  pb.style.width=((cu+1)/tt*100)+'%';
+  pr.classList.toggle('h',cu===0);nx.classList.toggle('h',cu===tt-1);
+}
+pr.addEventListener('click',()=>g(cu-1));nx.addEventListener('click',()=>g(cu+1));
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' '){e.preventDefault();g(cu+1)}if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();g(cu-1)}});
+let tx=0;document.addEventListener('touchstart',e=>{tx=e.changedTouches[0].screenX});document.addEventListener('touchend',e=>{const d=tx-e.changedTouches[0].screenX;if(Math.abs(d)>50)d>0?g(cu+1):g(cu-1)});
+const tm=document.getElementById('tm');let tl=300,rn=0,iv=null;function fm(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function st(){if(rn)return;rn=1;tm.textContent=fm(tl);iv=setInterval(()=>{tl--;tm.textContent=fm(tl);if(tl<=60)tm.classList.add('ur');if(tl<=0){clearInterval(iv);tm.textContent='00:00'}},1000)}
+let sd=0;const og=g;g=(i)=> {og(i);if(!sd&&i>0){sd=1;st()}};g(0);
+</script>
+</body>
+</html>
