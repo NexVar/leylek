@@ -1,11 +1,13 @@
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { ApiError } from '../api/client';
+import type { CampaignAudience, CreateCampaignResponse } from '../api/hooks';
 import { useCreateCampaign } from '../api/hooks';
 import type { CampaignMode } from '../api/types';
 import { Button } from './Button';
+import { CampaignCreationProgress, type CreationStage } from './CampaignCreationProgress';
 import { Input } from './Input';
 import { Modal } from './Modal';
 import { Pill } from './Pill';
@@ -29,10 +31,24 @@ const FormSchema = z.object({
 
 type FieldErrors = Partial<Record<'productUrl' | 'dailyBudgetTry' | '_form', string>>;
 
+// Artificial stage durations (ms) — keep the reveal feeling deliberate even
+// when the API resolves fast. The publish step never advances on the timer;
+// it waits for the mutation to actually finish so the reveal isn't lying.
+const STAGE_DURATIONS: Partial<Record<CreationStage, number>> = {
+  scrape: 1700,
+  audience: 2400,
+  strategy: 2400,
+  images: 2600,
+};
+
 /**
- * "Yeni kampanya" modal. Submits to POST /api/campaigns which runs the
- * content-agent → D1 → publisher-agent chain server-side. We show a
- * "İçerik ajanı çalışıyor…" loading state because the call takes ~15s.
+ * "Yeni kampanya" modal. POSTs to `/api/campaigns` which runs the full
+ * content-agent → D1 → publisher-agent chain server-side (~15-20s). While
+ * that's in flight the modal flips into a 6-stage `CampaignCreationProgress`
+ * reveal — `scrape → audience → strategy → images → publish → done` — so
+ * the user (and jury, in demo) sees the AI work happen step by step. The
+ * first four stages advance on a fixed timer; `publish` blocks on the API
+ * actually returning; `done` shows the final result + CTA to the detail page.
  */
 export function NewCampaignModal({ open, onClose }: NewCampaignModalProps) {
   const navigate = useNavigate();
@@ -42,15 +58,70 @@ export function NewCampaignModal({ open, onClose }: NewCampaignModalProps) {
   const [budget, setBudget] = useState('1000');
   const [mode, setMode] = useState<CampaignMode>('OTOPILOT');
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [stage, setStage] = useState<CreationStage | null>(null);
+  const [result, setResult] = useState<CreateCampaignResponse | null>(null);
+  const timeoutsRef = useRef<number[]>([]);
+
+  const clearTimers = () => {
+    for (const id of timeoutsRef.current) window.clearTimeout(id);
+    timeoutsRef.current = [];
+  };
+
+  // When the mutation resolves, push past `publish` → `done`.
+  useEffect(() => {
+    if (!createMutation.isSuccess) return;
+    setResult(createMutation.data);
+    // Allow the publish step to be visible for at least 800 ms so the
+    // platform-routing reveal isn't a one-frame flash.
+    const id = window.setTimeout(() => setStage('done'), 800);
+    timeoutsRef.current.push(id);
+    return () => window.clearTimeout(id);
+  }, [createMutation.isSuccess, createMutation.data]);
+
+  // Clean up timers on unmount. Inlined (not via `clearTimers`) so biome's
+  // exhaustive-deps rule doesn't drag a new dep into a mount-only effect.
+  useEffect(() => {
+    const timers = timeoutsRef;
+    return () => {
+      for (const id of timers.current) window.clearTimeout(id);
+      timers.current = [];
+    };
+  }, []);
 
   const handleClose = () => {
     if (createMutation.isPending) return;
+    clearTimers();
     setProductUrl('');
     setBudget('1000');
     setMode('OTOPILOT');
     setErrors({});
+    setStage(null);
+    setResult(null);
     createMutation.reset();
     onClose();
+  };
+
+  const handleGoToCampaign = () => {
+    const id = result?.campaign?.id;
+    handleClose();
+    if (id) navigate(`/campaigns/${id}`);
+  };
+
+  const scheduleArtificialStages = () => {
+    clearTimers();
+    setStage('scrape');
+    let acc = 0;
+    // Schedule audience, strategy, images. `publish` is entered after `images`
+    // even if the mutation is still pending — `mutationReady` controls the
+    // transition out of `publish`.
+    const transitions: CreationStage[] = ['audience', 'strategy', 'images', 'publish'];
+    let prev: CreationStage = 'scrape';
+    for (const next of transitions) {
+      acc += STAGE_DURATIONS[prev] ?? 2000;
+      const tid = window.setTimeout(() => setStage(next), acc);
+      timeoutsRef.current.push(tid);
+      prev = next;
+    }
   };
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -73,20 +144,65 @@ export function NewCampaignModal({ open, onClose }: NewCampaignModalProps) {
       return;
     }
 
+    scheduleArtificialStages();
+
     try {
-      const { campaign } = await createMutation.mutateAsync({
+      await createMutation.mutateAsync({
         productUrl: parsed.data.productUrl,
         mode,
         dailyBudgetKurus: Math.round(parsed.data.dailyBudgetTry * 100),
       });
-      handleClose();
-      navigate(`/campaigns/${campaign.id}`);
+      // success path handled by the useEffect on mutation.isSuccess
     } catch (err) {
+      clearTimers();
+      setStage(null);
       const msg = err instanceof ApiError ? err.message : 'Kampanya oluşturulamadı. Tekrar dene.';
       setErrors({ _form: msg });
     }
   };
 
+  // ---- progress / done view ------------------------------------------------
+  if (stage !== null) {
+    const dailyBudgetTry = Number(budget) || 0;
+    const audience: CampaignAudience | null = result?.audience ?? null;
+    const ads = result?.ads ?? [];
+
+    return (
+      <Modal
+        open={open}
+        onClose={handleClose}
+        locked={stage !== 'done'}
+        title={stage === 'done' ? 'Kampanya yayında' : 'Kampanya kuruluyor'}
+        subtitle={
+          stage === 'done'
+            ? 'Tüm varyantlar Google Ads + Meta sandbox’a verildi.'
+            : 'Leylek ajanları çalışıyor — her adımı aşağıda görebilirsin.'
+        }
+        size="lg"
+      >
+        <CampaignCreationProgress
+          productUrl={productUrl}
+          dailyBudgetTry={dailyBudgetTry}
+          audience={audience}
+          ads={ads}
+          stage={stage}
+          mutationReady={createMutation.isSuccess}
+        />
+        {stage === 'done' ? (
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <Button type="button" variant="secondary" onClick={handleClose}>
+              Kapat
+            </Button>
+            <Button type="button" variant="primary" onClick={handleGoToCampaign}>
+              Kampanyaya git
+            </Button>
+          </div>
+        ) : null}
+      </Modal>
+    );
+  }
+
+  // ---- form view -----------------------------------------------------------
   return (
     <Modal
       open={open}

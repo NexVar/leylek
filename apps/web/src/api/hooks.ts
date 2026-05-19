@@ -7,6 +7,7 @@ import type { CampaignMode } from '@leylek/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 import type {
+  Ad,
   AdminBackfillImagesResponse,
   AdminD1Response,
   AdminD1Table,
@@ -142,8 +143,21 @@ export interface CreateCampaignBody {
   dailyBudgetKurus: number;
 }
 
+export interface CampaignAudience {
+  demographic: string;
+  interests: string[];
+  painPoints: string[];
+}
+
 export interface CreateCampaignResponse {
   campaign: Campaign;
+  ads: Ad[];
+  /**
+   * content-agent's audience reasoning — surfaced so NewCampaignModal can
+   * show the demographic / interests / painPoints reveal while the API
+   * call is still in flight or on completion.
+   */
+  audience: CampaignAudience;
 }
 
 export function useCreateCampaign() {

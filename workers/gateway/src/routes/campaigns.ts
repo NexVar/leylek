@@ -65,7 +65,7 @@ campaignRoutes.post('/', async (c) => {
   if (!parsedOutput.success) {
     return c.json({ error: 'content_agent_invalid_output' }, 502);
   }
-  const { variants } = parsedOutput.data;
+  const { variants, audience } = parsedOutput.data;
   const geminiRequestId = analyzeJson.geminiRequestId;
   const imageR2Keys = analyzeJson.imageR2Keys ?? variants.map(() => null);
 
@@ -165,7 +165,10 @@ campaignRoutes.post('/', async (c) => {
     where: eq(schema.campaigns.id, campaignId),
   });
 
-  return c.json({ campaign: finalCampaign, ads: finalAds }, 201);
+  // `audience` is content-agent's reasoning artefact — not persisted to D1
+  // but echoed back so the create modal can show what Gemini decided about
+  // demographic / interests / painPoints during the reveal animation.
+  return c.json({ campaign: finalCampaign, ads: finalAds, audience }, 201);
 });
 
 // ---------------------------------------------------------------------------
