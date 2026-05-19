@@ -32,12 +32,19 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col bg-surface">
       <header className="bg-primary text-primary-foreground border-b border-primary-hover">
-        <div className="max-w-[1280px] mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center" aria-label="Leylek Dashboard">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <Link
+            to="/dashboard"
+            className="flex items-center shrink-0"
+            aria-label="Leylek Dashboard"
+          >
             <Logo tone="light" size="md" />
           </Link>
 
-          <nav className="flex items-center gap-1 text-[14px]">
+          {/* Nav links live in the header on `sm+`; on small mobile the
+              dashboard is reached via the logo and accounts via the avatar
+              menu, keeping the header from overflowing on a 360-375 px width. */}
+          <nav className="hidden sm:flex items-center gap-1 text-[14px]">
             <TopNavLink to="/dashboard" active={onDashboard}>
               Kampanyalar
             </TopNavLink>
@@ -46,7 +53,7 @@ export function AppShell({ children }: AppShellProps) {
             </TopNavLink>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {user ? <BellBadge /> : null}
             {user ? (
               <AvatarMenu
@@ -62,9 +69,11 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-[1280px] w-full mx-auto px-6 py-8">{children}</main>
+      <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {children}
+      </main>
 
-      <footer className="max-w-[1280px] mx-auto px-6 pb-6 pt-2 text-body-sm text-ink-subtle flex items-center justify-between">
+      <footer className="max-w-[1280px] mx-auto px-4 sm:px-6 pb-6 pt-2 text-body-sm text-ink-subtle flex items-center justify-between">
         <span>© {new Date().getFullYear()} Leylek — Otonom dijital reklam ajansı.</span>
       </footer>
     </div>
