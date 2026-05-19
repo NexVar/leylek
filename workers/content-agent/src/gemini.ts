@@ -15,13 +15,17 @@
  *   -> { text, responseId, ... }
  */
 
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import { CONTENT_AGENT_SYSTEM, CONTENT_AGENT_USER } from '@leylek/prompts';
 import { ContentAgentOutput } from '@leylek/shared-types';
 
-// PRD §16 free-tier fallback — Pro quota is 0 on this project; Flash is the
-// supported model on the same Gemini API key and handles structured output identically.
-const MODEL_ID = 'gemini-2.5-flash';
+// PRD §16 — Gemini 2.5 Flash free-tier on our project is capped at 20 RPD,
+// which we burn in a single demo session. Gemma 4 26B (MoE, 4B active) on the
+// same `@google/genai` SDK is on the free tier at 1,500 RPD (~75x headroom)
+// and still supports `systemInstruction` + `responseSchema` so the rest of
+// this file is unchanged. `thinkingLevel: MINIMAL` keeps latency low for the
+// content-gen path — we don't need deep reasoning for ad-variant generation.
+const MODEL_ID = 'gemma-4-26b-a4b-it';
 const TEMPERATURE = 0.7;
 
 /**
@@ -169,6 +173,7 @@ async function callGemini(ai: GoogleGenAI, contents: string): Promise<GeminiCall
         temperature: TEMPERATURE,
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
     });
     const text = response.text ?? '';

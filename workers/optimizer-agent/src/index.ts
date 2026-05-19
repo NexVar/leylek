@@ -22,7 +22,7 @@ export { CampaignAgent };
 const app = new Hono<{ Bindings: Env }>();
 
 app.get('/api/health', (c) =>
-  c.json({ status: 'ok', service: 'optimizer-agent', model: 'gemini-2.5-flash' }),
+  c.json({ status: 'ok', service: 'optimizer-agent', model: 'gemma-4-26b-a4b-it' }),
 );
 
 app.post('/internal/optimize/:campaignId', async (c) => {
