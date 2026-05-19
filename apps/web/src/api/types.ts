@@ -52,6 +52,12 @@ export interface Ad {
   strategyType: AdStrategy;
   adText: string;
   imagePrompt: string | null;
+  /**
+   * R2 object key for the AI-generated creative — served by the gateway
+   * proxy at `/api/creatives/<key>`. Null while image gen is still
+   * pending (or if it failed for that variant).
+   */
+  imageR2Key: string | null;
   metaAdId: string | null;
   googleAdId: string | null;
   status: AdStatus;
@@ -228,4 +234,17 @@ export interface AdminKvResponse {
 export interface AdminKvValueResponse {
   key: string;
   value: string | null;
+}
+
+export interface AdminBackfillImageResult {
+  adId: number;
+  r2Key: string | null;
+  error?: string;
+}
+
+export interface AdminBackfillImagesResponse {
+  total: number;
+  filled: number;
+  failed: number;
+  results: AdminBackfillImageResult[];
 }

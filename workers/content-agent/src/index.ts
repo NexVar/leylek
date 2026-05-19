@@ -8,11 +8,13 @@
  * exposed to the public internet.
  */
 
+import { GoogleGenAI } from '@google/genai';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
 import type { Env } from './env';
 import { analyzeProduct, ContentAgentError } from './gemini';
+import { generateAndStoreAdImage } from './image-gen';
 import { scrapeProductUrl } from './scrape';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -57,8 +59,22 @@ app.post('/internal/analyze', async (c) => {
       scrapedContent: scrape.content,
       dailyBudgetTry,
     });
+
+    // Image generation per variant. Best-effort and parallel — a failure on
+    // any single image returns null for that variant, never blocking the
+    // overall response. Total wall-clock = max image latency (~3 s) since
+    // all three calls run concurrently.
+    const ai = new GoogleGenAI({ apiKey });
+    const imageR2Keys: (string | null)[] = await Promise.all(
+      result.output.variants.map(async (v) => {
+        const generated = await generateAndStoreAdImage(ai, c.env.CREATIVES, v.imagePrompt);
+        return generated?.r2Key ?? null;
+      }),
+    );
+
     return c.json({
       output: result.output,
+      imageR2Keys,
       geminiRequestId: result.geminiRequestId,
       sourceMode: scrape.mode,
     });
@@ -79,6 +95,34 @@ app.post('/internal/analyze', async (c) => {
     console.error('[content-agent] unexpected error:', err);
     return c.json({ error: 'internal_error' }, 500);
   }
+});
+
+/**
+ * Backfill endpoint — generates an image for an ad whose original
+ * content-agent call ran before image gen was wired (seeded demo
+ * campaigns + any pre-Wave-12 row). Body: `{prompt: string}`. Returns
+ * `{r2Key | null}`. Idempotent — caller decides whether to re-trigger.
+ */
+const BackfillRequest = z.object({
+  prompt: z.string().min(1),
+});
+
+app.post('/internal/generate-image', async (c) => {
+  let body: z.infer<typeof BackfillRequest>;
+  try {
+    body = BackfillRequest.parse(await c.req.json());
+  } catch (err) {
+    return c.json(
+      { error: 'invalid_request', detail: err instanceof Error ? err.message : 'bad body' },
+      400,
+    );
+  }
+  const apiKey = c.env.GEMINI_API_KEY;
+  if (!apiKey) return c.json({ error: 'missing_gemini_api_key' }, 500);
+
+  const ai = new GoogleGenAI({ apiKey });
+  const generated = await generateAndStoreAdImage(ai, c.env.CREATIVES, body.prompt);
+  return c.json({ r2Key: generated?.r2Key ?? null, bytes: generated?.bytes ?? 0 });
 });
 
 export default app;

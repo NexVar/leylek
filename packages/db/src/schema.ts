@@ -106,6 +106,13 @@ export const ads = sqliteTable('ads', {
   googleAdId: text('google_ad_id'),
   /** 'pending' | 'active' | 'paused' */
   status: text('status').notNull().default('pending'),
+  /**
+   * Path of the AI-generated creative under the `leylek-creatives` R2
+   * bucket — e.g. `ads/<adId>.png`. Served by the gateway proxy at
+   * `GET /api/creatives/:key`. Null until content-agent finishes the
+   * image-gen step.
+   */
+  imageR2Key: text('image_r2_key'),
   spendKurus: integer('spend_kurus').notNull().default(0),
   cpaKurus: integer('cpa_kurus'),
   /** CTR x 10000 — e.g. 250 = 2.5% */

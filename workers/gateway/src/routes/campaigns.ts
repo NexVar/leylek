@@ -57,6 +57,7 @@ campaignRoutes.post('/', async (c) => {
   }
   const analyzeJson = (await analyzeRes.json()) as {
     output: unknown;
+    imageR2Keys?: (string | null)[];
     geminiRequestId?: string;
     sourceMode?: string;
   };
@@ -66,6 +67,7 @@ campaignRoutes.post('/', async (c) => {
   }
   const { variants } = parsedOutput.data;
   const geminiRequestId = analyzeJson.geminiRequestId;
+  const imageR2Keys = analyzeJson.imageR2Keys ?? variants.map(() => null);
 
   // 2. Persist campaign + 3 ad rows. We accept that this multi-statement
   //    write isn't a real D1 transaction (see file header).
@@ -89,11 +91,12 @@ campaignRoutes.post('/', async (c) => {
   const adInserts = await db
     .insert(schema.ads)
     .values(
-      variants.map((v) => ({
+      variants.map((v, i) => ({
         campaignId,
         strategyType: v.strategyType,
         adText: v.adText,
         imagePrompt: v.imagePrompt,
+        imageR2Key: imageR2Keys[i] ?? null,
         status: 'pending' as const,
       })),
     )
@@ -102,6 +105,7 @@ campaignRoutes.post('/', async (c) => {
       strategyType: schema.ads.strategyType,
       adText: schema.ads.adText,
       imagePrompt: schema.ads.imagePrompt,
+      imageR2Key: schema.ads.imageR2Key,
       status: schema.ads.status,
     });
 

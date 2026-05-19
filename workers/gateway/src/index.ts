@@ -69,6 +69,32 @@ app.route('/api/campaigns', campaignRoutes);
 app.route('/api/notifications', notificationRoutes);
 app.route('/api/admin', adminRoutes);
 
+// ---------------------------------------------------------------------------
+// Creative proxy — serves AI-generated ad images from R2 under the same
+// leylek.nexvar.io origin (no cross-origin CORS, no separate r2.dev URL
+// leaking on the brand). Keys are content-agent-issued opaque strings
+// (`ad-<id>.png`); we serve any key that exists. Caching is the same
+// `immutable` header content-agent set at upload time — Cloudflare CDN
+// honours it without us re-emitting per response.
+// ---------------------------------------------------------------------------
+app.get('/api/creatives/:key', async (c) => {
+  const key = c.req.param('key');
+  if (!key || key.length === 0 || key.includes('/') || key.includes('..')) {
+    return c.json({ error: 'invalid_key' }, 400);
+  }
+  const object = await c.env.CREATIVES.get(key);
+  if (!object) {
+    return c.json({ error: 'not_found', key }, 404);
+  }
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  if (!headers.has('cache-control')) {
+    headers.set('cache-control', 'public, max-age=31536000, immutable');
+  }
+  return new Response(object.body, { headers });
+});
+
 app.notFound((c) => c.json({ error: 'not found' }, 404));
 
 app.onError((err, c) => {

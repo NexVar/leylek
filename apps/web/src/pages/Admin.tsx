@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react';
 import { ApiError } from '../api/client';
-import { useAdminD1, useAdminKv, useAdminKvValue, useAdminSummary } from '../api/hooks';
+import {
+  useAdminD1,
+  useAdminKv,
+  useAdminKvValue,
+  useAdminSummary,
+  useBackfillImages,
+} from '../api/hooks';
 import type { AdminD1Table } from '../api/types';
 import { Button } from '../components/Button';
 import { Card, CardHeader } from '../components/Card';
@@ -43,6 +49,8 @@ export function AdminPage() {
         </p>
       </header>
 
+      <BackfillImagesCard />
+
       <nav className="flex items-center gap-2 border-b border-border">
         {(['summary', 'd1', 'kv'] as const).map((t) => (
           <TabButton key={t} active={tab === t} onClick={() => setTab(t)}>
@@ -55,6 +63,49 @@ export function AdminPage() {
       {tab === 'd1' ? <D1Tab /> : null}
       {tab === 'kv' ? <KvTab /> : null}
     </div>
+  );
+}
+
+function BackfillImagesCard() {
+  const backfill = useBackfillImages();
+  const data = backfill.data;
+
+  return (
+    <Card padding="lg" className="flex flex-col gap-3 border-accent/30">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex flex-col gap-1.5 min-w-0">
+          <h2 className="text-h3 text-ink">AI ad görsellerini üret</h2>
+          <p className="text-body-sm text-ink-muted leading-[1.5] max-w-prose">
+            Görseli olmayan her reklam için{' '}
+            <code className="font-mono">gemini-2.5-flash-image</code> (Nano Banana) ile bir creative
+            üretir, R2'ye yükler ve <code className="font-mono">ads.image_r2_key</code> kolonuna
+            yazar. Idempotent — sadece null olan row'lara dokunur. Sıralı çağırır, her görsel ~2-3
+            sn.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          onClick={() => backfill.mutate()}
+          loading={backfill.isPending}
+          disabled={backfill.isPending}
+        >
+          {backfill.isPending ? 'Üretiliyor…' : 'Görselleri üret'}
+        </Button>
+      </div>
+      {data ? (
+        <div className="pt-2 border-t border-border flex items-center gap-3 flex-wrap text-body-sm">
+          <Pill tone="success" dot>
+            {data.filled} üretildi
+          </Pill>
+          {data.failed > 0 ? <Pill tone="danger">{data.failed} başarısız</Pill> : null}
+          <span className="text-ink-subtle">{data.total} eksik row tarandı</span>
+        </div>
+      ) : backfill.error ? (
+        <p className="text-body-sm text-danger pt-2 border-t border-border">
+          {backfill.error instanceof ApiError ? backfill.error.message : 'Beklenmeyen hata.'}
+        </p>
+      ) : null}
+    </Card>
   );
 }
 

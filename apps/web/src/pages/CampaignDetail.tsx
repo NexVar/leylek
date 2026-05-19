@@ -458,6 +458,33 @@ function AdCard({ ad }: AdCardProps) {
         <Pill tone={statusTone}>{statusLabel}</Pill>
       </div>
 
+      <div className="mt-3">
+        {ad.imageR2Key ? (
+          <img
+            src={`/api/creatives/${ad.imageR2Key}`}
+            alt={`${strategyLabel(ad.strategyType)} reklam görseli`}
+            loading="lazy"
+            decoding="async"
+            className={cn(
+              'w-full aspect-square object-cover rounded-md border border-border bg-surface-sunken',
+              isPaused && 'opacity-40 grayscale',
+            )}
+          />
+        ) : (
+          <div
+            role="img"
+            aria-label="Görsel henüz üretilmedi"
+            className={cn(
+              'w-full aspect-square rounded-md border border-dashed border-border',
+              'bg-surface-sunken flex items-center justify-center text-body-sm text-ink-subtle',
+              'leading-[1.4] text-center px-4',
+            )}
+          >
+            Görsel hazırlanıyor — /admin'den "Görselleri üret" ile tetikle
+          </div>
+        )}
+      </div>
+
       <p
         className={cn(
           'text-body-md text-ink mt-3 leading-[1.5] min-h-[5.5rem]',

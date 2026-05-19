@@ -14,6 +14,9 @@
  *   GET /api/admin/kv/value?key=         — single KV value (string)
  */
 
+import { schema } from '@leylek/db';
+import { eq, isNull } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 
 import type { Env } from '../env';
@@ -96,4 +99,76 @@ adminRoutes.get('/kv/value', async (c) => {
   }
   const value = await c.env.KV.get(key);
   return c.json({ key, value });
+});
+
+/**
+ * POST /api/admin/backfill-images — generates an AI ad creative for every
+ * ad row that's missing one (`image_r2_key IS NULL`). Calls content-agent's
+ * `/internal/generate-image` per ad, writes the returned R2 key into D1.
+ *
+ * Wave 9-10 demo seeds wrote rows without images (image gen wasn't wired
+ * yet); the /admin page exposes a button that hits this endpoint so the
+ * jury can see real Gemini-generated creatives without waiting for the
+ * next cron cycle. Idempotent — only touches rows where the column is null.
+ *
+ * Returns per-ad outcomes so the UI can surface failures (rate limit,
+ * content-safety reject) individually.
+ */
+adminRoutes.post('/backfill-images', async (c) => {
+  const db = drizzle(c.env.DB, { schema });
+
+  const missing = await db
+    .select({
+      id: schema.ads.id,
+      imagePrompt: schema.ads.imagePrompt,
+    })
+    .from(schema.ads)
+    .where(isNull(schema.ads.imageR2Key));
+
+  if (missing.length === 0) {
+    return c.json({ total: 0, filled: 0, failed: 0, results: [] });
+  }
+
+  type Outcome = { adId: number; r2Key: string | null; error?: string };
+  const results: Outcome[] = [];
+
+  // Sequential — Gemini free tier rate-limits roughly 60 RPM. 3-15 demo ads
+  // at ~2-3 s per gen stay comfortably inside that even without batching.
+  for (const ad of missing) {
+    if (!ad.imagePrompt) {
+      results.push({ adId: ad.id, r2Key: null, error: 'no_image_prompt' });
+      continue;
+    }
+    try {
+      const res = await c.env.CONTENT_AGENT.fetch('https://internal/internal/generate-image', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: ad.imagePrompt }),
+      });
+      if (!res.ok) {
+        results.push({ adId: ad.id, r2Key: null, error: `upstream_${res.status}` });
+        continue;
+      }
+      const payload = (await res.json()) as { r2Key: string | null };
+      if (payload.r2Key) {
+        await db
+          .update(schema.ads)
+          .set({ imageR2Key: payload.r2Key })
+          .where(eq(schema.ads.id, ad.id));
+        results.push({ adId: ad.id, r2Key: payload.r2Key });
+      } else {
+        results.push({ adId: ad.id, r2Key: null, error: 'gen_returned_null' });
+      }
+    } catch (err) {
+      results.push({
+        adId: ad.id,
+        r2Key: null,
+        error: err instanceof Error ? err.message : 'unknown',
+      });
+    }
+  }
+
+  const filled = results.filter((r) => r.r2Key !== null).length;
+  const failed = results.length - filled;
+  return c.json({ total: results.length, filled, failed, results });
 });

@@ -7,6 +7,7 @@ import type { CampaignMode } from '@leylek/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 import type {
+  AdminBackfillImagesResponse,
   AdminD1Response,
   AdminD1Table,
   AdminKvResponse,
@@ -341,6 +342,27 @@ export function useAdminKvValue(key: string | null) {
       }),
     enabled: key !== null && key.length > 0,
     staleTime: 0,
+  });
+}
+
+/**
+ * Backfill AI ad creatives for every ad row missing an `image_r2_key`.
+ * Sequential per-ad — ~2-3 s each. UI shows progress via the mutation's
+ * `isPending` state; the response carries per-ad outcomes for the
+ * "X filled, Y failed" summary line.
+ */
+export function useBackfillImages() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<AdminBackfillImagesResponse>('/api/admin/backfill-images', { method: 'POST' }),
+    onSuccess: () => {
+      // Invalidate all campaign + ad queries so the newly-filled image_r2_key
+      // appears on the dashboard / campaign detail without a manual refresh.
+      void qc.invalidateQueries({ queryKey: queryKeys.campaigns });
+      void qc.invalidateQueries({ queryKey: ['campaigns'] });
+      void qc.invalidateQueries({ queryKey: ['admin'] });
+    },
   });
 }
 
