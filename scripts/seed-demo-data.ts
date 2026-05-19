@@ -2,15 +2,26 @@
  * Leylek demo data seeder.
  *
  * Writes a deterministic 48 h fake history into Cloudflare D1 + KV so the
- * jury sees a populated dashboard the moment they log in:
+ * jury sees a populated, multi-campaign dashboard the moment they log in:
  *
  *   - 1 demo user (`batuhanbayazitt@gmail.com`)
  *   - 1 connected `google_ads` account (numeric customer id pinned)
- *   - 1 active campaign ("Demlik Pro — Akıllı Çay Demleme Cihazı")
- *   - 3 ads (AGGRESSIVE / STORY / TECHNICAL) with the catastrophic-loser
- *     metric curves from docs/AGENT_DECISIONS.md §5
- *   - 8×6 h `metric_snapshots` buckets per ad — totals match the table exactly
- *   - 3 pre-existing `CREATED_AD` rows in `agent_logs` (publisher agent)
+ *   - 3 campaigns under the same user, each in a different lifecycle state:
+ *       A. "Demlik Pro — Akıllı Çay Demleme Cihazı" — OTOPILOT, active,
+ *          full 48 h history with the catastrophic-loser curves from
+ *          docs/AGENT_DECISIONS.md §5 (this is the hero demo path).
+ *       B. "Nardana Pınarbaşı — Doğal Nar Ekşisi" — OTOPILOT, active,
+ *          freshly published, all metrics zero (optimizer hasn't run yet).
+ *       C. "Halıshalı — El Dokuma Anadolu Yün Halısı" — COPILOT, active,
+ *          AGGRESSIVE variant already paused by the optimizer 14 h ago
+ *          and a small budget reallocation logged toward STORY.
+ *   - Per active ad: 8×6 h `metric_snapshots` buckets whose per-ad
+ *     totals match the spec table exactly. The paused ad (campaign C
+ *     AGGRESSIVE) only carries the 4 buckets covering the 24 h
+ *     immediately before its pause; the remaining buckets are absent.
+ *   - Per campaign: 3 publisher `CREATED_AD` `agent_logs` rows, plus
+ *     (campaign C) optimizer `PAUSED_AD` + `REALLOCATED_BUDGET` rows
+ *     with `created_at` pinned 14 h / 13 h before the seed end.
  *   - `gads:*` KV entries shaped the way `RealGoogleAdsClient` expects
  *     when its `baseUrl` points at the `leylek-google-ads-mock` Worker
  *     (mockdata.md). Flipping `GOOGLE_ADS_BASE_URL` to the real Google
@@ -47,32 +58,21 @@ const DEMO_USER = {
 } as const;
 
 /**
- * Numeric Google Ads ids. `customerId` must match DEMO_CREDENTIALS in
- * publisher-agent/src/index.ts and analytics-worker/src/index.ts — both
- * the seed and the runtime use this as the KV key partition.
+ * Single Google Ads customer (mock or real) shared by every demo campaign.
+ * `customerId` must match `DEMO_CREDENTIALS` in publisher-agent/src/index.ts
+ * and analytics-worker/src/index.ts — seed + runtime agree on the KV
+ * partition.
  *
- * Ids are deliberately tiny so they're easy to spot in logs; real Google
- * ids would be 10-19 digit numbers. The mock doesn't enforce either way.
+ * Per-campaign numeric ids (campaign + budget + ad-group + ad) are pinned
+ * on each `CampaignSpec` below. They are deliberately tiny so they're easy
+ * to spot in logs; real Google ids would be 10-19 digit numbers. The mock
+ * doesn't enforce either way.
  */
-const GADS = {
-  customerId: '1234567890',
-  campaignId: '2001',
-  budgetId: '3001',
-} as const;
-
-const DEMO_CAMPAIGN = {
-  productUrl: 'https://demlik.pro/akilli-cay-demleme-cihazi',
-  /** Stored on `campaigns.do_id`; consumed by publisher-agent + optimizer. */
-  externalId: GADS.campaignId,
-  dailyBudgetKurus: 100_000,
-  // Friendly name not stored in D1 today; campaigns table has no `name`
-  // column — the product URL is the handle. Used in KV records only.
-  displayName: 'Demlik Pro — Akıllı Çay Demleme Cihazı',
-} as const;
+const GADS_CUSTOMER_ID = '1234567890';
 
 const CONNECTED_ACCOUNT = {
   provider: 'google_ads',
-  externalId: GADS.customerId,
+  externalId: GADS_CUSTOMER_ID,
   accountLabel: 'Demlik',
 } as const;
 
@@ -84,92 +84,329 @@ interface DemoAdSpec {
   strategyType: 'AGGRESSIVE' | 'STORY' | 'TECHNICAL';
   adText: string;
   imagePrompt: string;
+  /** D1 ad-row status. Drift cron skips anything != 'active'. */
+  status: 'active' | 'paused';
   spendKurus: number;
-  cpaKurus: number;
-  ctrBasisPoints: number;
-  // Aggregate totals over the full 48 h window
+  cpaKurus: number | null;
+  ctrBasisPoints: number | null;
+  /** Aggregate totals over the active window. Zero for "no data yet" ads. */
   impressions: number;
   clicks: number;
   conversions: number;
   agentLogReason: string;
 }
 
+interface CampaignSpec {
+  /** Pinned numeric Google Ads campaign id; stored on `campaigns.do_id`. */
+  campaignId: string;
+  /** Pinned numeric Google Ads budget id (KV key segment only). */
+  budgetId: string;
+  productUrl: string;
+  /** Used in KV records and operator-facing labels — not stored in D1. */
+  displayName: string;
+  dailyBudgetKurus: number;
+  /** Campaign mode persisted on `campaigns.mode`. */
+  mode: 'OTOPILOT' | 'COPILOT';
+  ads: readonly DemoAdSpec[];
+  /**
+   * Optimizer audit-log entries to seed alongside the publisher `CREATED_AD`
+   * rows. The seed pins `created_at` so the activity timeline orders
+   * sensibly and the "paused 14 h ago" timestamp is reproducible.
+   */
+  optimizerLogs?: readonly OptimizerLogSpec[];
+}
+
+interface OptimizerLogSpec {
+  agentName: 'optimizer';
+  action: 'PAUSED_AD' | 'REALLOCATED_BUDGET';
+  /** Index into `ads` for the ad this log entry targets (PAUSED_AD source / REALLOCATED_BUDGET source). */
+  targetAdIndex: number;
+  /** Secondary ad index for REALLOCATED_BUDGET — the ad gaining budget. */
+  reallocatedToAdIndex?: number;
+  reason: string;
+  confidence: number;
+  /** Hours before the pinned seed end at which this log fired. */
+  hoursAgo: number;
+}
+
 /**
- * Numbers are pinned to docs/AGENT_DECISIONS.md §5.  Don't tweak in isolation:
+ * Campaign A — Demlik Pro. Hero demo path.
+ *
+ * Numbers are pinned to docs/AGENT_DECISIONS.md §5. Don't tweak in isolation:
  * the optimizer-agent prompt's "catastrophic loser" branch depends on
  * Ad-1 CPA ≈ 4.575× median, so changing these breaks the demo decision.
  */
-const ADS: readonly DemoAdSpec[] = [
-  {
-    externalId: '4001~5001',
-    adGroupId: '4001',
-    adId: '5001',
-    strategyType: 'AGGRESSIVE',
-    adText:
-      'Çayını 3 dakikada mükemmel demle.\nDemlik Pro ile ilk 100 sipariş %40 indirim — bugün bitmeden sepete ekle, çay keyfini bir üst seviyeye taşı.',
-    imagePrompt:
-      'High-contrast product hero of a sleek Turkish smart tea brewer with warm steam, marketplace banner style.',
-    spendKurus: 1_100_000,
-    cpaKurus: 18_333,
-    ctrBasisPoints: 210,
-    impressions: 10_500,
-    clicks: 220,
-    conversions: 60,
-    agentLogReason:
-      'AGGRESSIVE varyantı yayına alındı: kısa, kıtlık + indirim çerçeveli copy ile yüksek CTR hedeflendi.',
-  },
-  {
-    externalId: '4002~5002',
-    adGroupId: '4002',
-    adId: '5002',
-    strategyType: 'STORY',
-    adText:
-      'Anneannemin pazar sabahları demlediği çayın o kokusu vardı, hatırlar mısınız?\nDemlik Pro bu sabahları geri getiriyor — her bardakta aynı sıcaklık, aynı huzur.',
-    imagePrompt:
-      'Soft morning light on a wooden kitchen table, vintage Turkish tea glasses next to a modern brewer, nostalgic mood.',
-    spendKurus: 375_000,
-    cpaKurus: 1_500,
-    ctrBasisPoints: 400,
-    impressions: 13_000,
-    clicks: 520,
-    conversions: 250,
-    agentLogReason:
-      'STORY varyantı yayına alındı: duygusal nostaljik anlatım, KOBİ Türk hedef kitlesinde dönüşüm beklendi.',
-  },
-  {
-    externalId: '4003~5003',
-    adGroupId: '4003',
-    adId: '5003',
-    strategyType: 'TECHNICAL',
-    adText:
-      'Demlik Pro: çift kademe sıcaklık kontrolü (60-95°C), 5 demleme programı, mobil uygulamadan zamanlama, ısı kaybı yalıtımı.\nLaboratuvarda test edilmiş tutarlılık, sertifikalı paslanmaz çelik gövde.',
-    imagePrompt:
-      'Top-down exploded view of a precision tea brewer, callouts for temperature sensor, timer, insulated steel chamber.',
-    spendKurus: 380_000,
-    cpaKurus: 4_000,
-    ctrBasisPoints: 300,
-    impressions: 9_500,
-    clicks: 285,
-    conversions: 95,
-    agentLogReason:
-      'TECHNICAL varyantı yayına alındı: spesifikasyon-odaklı copy ile karşılaştırmacı alıcı segmenti hedeflendi.',
-  },
+const DEMLIK_CAMPAIGN: CampaignSpec = {
+  campaignId: '2001',
+  budgetId: '3001',
+  productUrl: 'https://demlik.pro/akilli-cay-demleme-cihazi',
+  displayName: 'Demlik Pro — Akıllı Çay Demleme Cihazı',
+  dailyBudgetKurus: 100_000,
+  mode: 'OTOPILOT',
+  ads: [
+    {
+      externalId: '4001~5001',
+      adGroupId: '4001',
+      adId: '5001',
+      strategyType: 'AGGRESSIVE',
+      adText:
+        'Çayını 3 dakikada mükemmel demle.\nDemlik Pro ile ilk 100 sipariş %40 indirim — bugün bitmeden sepete ekle, çay keyfini bir üst seviyeye taşı.',
+      imagePrompt:
+        'High-contrast product hero of a sleek Turkish smart tea brewer with warm steam, marketplace banner style.',
+      status: 'active',
+      spendKurus: 1_100_000,
+      cpaKurus: 18_333,
+      ctrBasisPoints: 210,
+      impressions: 10_500,
+      clicks: 220,
+      conversions: 60,
+      agentLogReason:
+        'AGGRESSIVE varyantı yayına alındı: kısa, kıtlık + indirim çerçeveli copy ile yüksek CTR hedeflendi.',
+    },
+    {
+      externalId: '4002~5002',
+      adGroupId: '4002',
+      adId: '5002',
+      strategyType: 'STORY',
+      adText:
+        'Anneannemin pazar sabahları demlediği çayın o kokusu vardı, hatırlar mısınız?\nDemlik Pro bu sabahları geri getiriyor — her bardakta aynı sıcaklık, aynı huzur.',
+      imagePrompt:
+        'Soft morning light on a wooden kitchen table, vintage Turkish tea glasses next to a modern brewer, nostalgic mood.',
+      status: 'active',
+      spendKurus: 375_000,
+      cpaKurus: 1_500,
+      ctrBasisPoints: 400,
+      impressions: 13_000,
+      clicks: 520,
+      conversions: 250,
+      agentLogReason:
+        'STORY varyantı yayına alındı: duygusal nostaljik anlatım, KOBİ Türk hedef kitlesinde dönüşüm beklendi.',
+    },
+    {
+      externalId: '4003~5003',
+      adGroupId: '4003',
+      adId: '5003',
+      strategyType: 'TECHNICAL',
+      adText:
+        'Demlik Pro: çift kademe sıcaklık kontrolü (60-95°C), 5 demleme programı, mobil uygulamadan zamanlama, ısı kaybı yalıtımı.\nLaboratuvarda test edilmiş tutarlılık, sertifikalı paslanmaz çelik gövde.',
+      imagePrompt:
+        'Top-down exploded view of a precision tea brewer, callouts for temperature sensor, timer, insulated steel chamber.',
+      status: 'active',
+      spendKurus: 380_000,
+      cpaKurus: 4_000,
+      ctrBasisPoints: 300,
+      impressions: 9_500,
+      clicks: 285,
+      conversions: 95,
+      agentLogReason:
+        'TECHNICAL varyantı yayına alındı: spesifikasyon-odaklı copy ile karşılaştırmacı alıcı segmenti hedeflendi.',
+    },
+  ],
+};
+
+/**
+ * Campaign B — Nardana Pınarbaşı (Doğal Nar Ekşisi). Freshly published.
+ *
+ * All metrics zero, CPA/CTR null — the optimizer has not run yet. The drift
+ * cron leaves this campaign untouched as long as `impressions === '0'`, so
+ * Nardana stays at "no data yet" for the first 24 h of demo time.
+ */
+const NARDANA_CAMPAIGN: CampaignSpec = {
+  campaignId: '2002',
+  budgetId: '3002',
+  productUrl: 'https://nardanapinarbasi.com.tr/dogal-nar-eksisi-suyu',
+  displayName: 'Nardana Pınarbaşı — Doğal Nar Ekşisi',
+  dailyBudgetKurus: 75_000,
+  mode: 'OTOPILOT',
+  ads: [
+    {
+      externalId: '4004~5004',
+      adGroupId: '4004',
+      adId: '5004',
+      strategyType: 'AGGRESSIVE',
+      adText:
+        'Bugüne özel %25 indirim.\nDoğanın özü Nardana nar ekşisi — sepete ekle, ilk siparişte ücretsiz kargo seni bekliyor.',
+      imagePrompt:
+        'High-contrast bottle hero of a dark ruby Turkish pomegranate molasses with a price tag callout.',
+      status: 'active',
+      spendKurus: 0,
+      cpaKurus: null,
+      ctrBasisPoints: null,
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      agentLogReason:
+        'AGGRESSIVE varyantı yayına alındı: indirim + ücretsiz kargo çerçevesiyle ilk-tıklama dönüşümü hedeflendi.',
+    },
+    {
+      externalId: '4005~5005',
+      adGroupId: '4005',
+      adId: '5005',
+      strategyType: 'STORY',
+      adText:
+        'Anneannemizin sofrasındaki o ekşi tat hiç eskimedi.\nNardana Pınarbaşı taş baskı geleneğini bozmadı — bir damla, hatıralarınızı geri getirsin.',
+      imagePrompt:
+        'Warm-toned still life of a hand-poured spoonful of pomegranate molasses on a vintage Anatolian sofra.',
+      status: 'active',
+      spendKurus: 0,
+      cpaKurus: null,
+      ctrBasisPoints: null,
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      agentLogReason:
+        'STORY varyantı yayına alındı: geleneksel sofra anlatımı ile yetişkin Türk tüketici segmenti hedeflendi.',
+    },
+    {
+      externalId: '4006~5006',
+      adGroupId: '4006',
+      adId: '5006',
+      strategyType: 'TECHNICAL',
+      adText:
+        'Nardana: %100 doğal, koruyucusuz, taş baskı yöntemiyle elde edildi.\n300 ml cam şişe, 18 ay raf ömrü, gıda mühendisliği sertifikalı üretim.',
+      imagePrompt:
+        'Top-down clinical shot of a labeled pomegranate molasses bottle next to a spec sheet listing ingredients and shelf life.',
+      status: 'active',
+      spendKurus: 0,
+      cpaKurus: null,
+      ctrBasisPoints: null,
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      agentLogReason:
+        'TECHNICAL varyantı yayına alındı: bileşim ve üretim sertifikası odaklı copy ile karşılaştırmacı alıcı hedeflendi.',
+    },
+  ],
+};
+
+/**
+ * Campaign C — Halıshalı. Already optimized.
+ *
+ * The optimizer-agent paused the AGGRESSIVE variant 14 h ago when its CPA
+ * came in at 5.x × the campaign median and reallocated a slice of the daily
+ * budget (originally ₺800/day → ₺600/day on the campaign, with ₺200 worth
+ * of budget shifted to STORY). The seeded ad-table reflects the post-action
+ * state: AGGRESSIVE is `paused`, the other two stay active and healthy.
+ *
+ * Drift cron skips the paused ad — its numbers stay frozen, illustrating
+ * the optimizer's "stop-loss" decision in the activity timeline without
+ * disturbing the catastrophic-loser ratio.
+ */
+const HALISHALI_CAMPAIGN: CampaignSpec = {
+  campaignId: '2003',
+  budgetId: '3003',
+  productUrl: 'https://halishali.com.tr/anadolu-yun-hali',
+  displayName: 'Halıshalı — El Dokuma Anadolu Yün Halısı',
+  dailyBudgetKurus: 60_000,
+  mode: 'COPILOT',
+  ads: [
+    {
+      externalId: '4007~5007',
+      adGroupId: '4007',
+      adId: '5007',
+      strategyType: 'AGGRESSIVE',
+      adText:
+        'Anadolu desenli yün halıda yıl sonu fırsatı: tüm modellerde %35 indirim.\nStok eridi eriyecek — bugün siparişle haftaya kapında.',
+      imagePrompt:
+        'Top-down hero of a handwoven Anatolian wool rug rolled out on a polished wooden floor, sale banner overlay.',
+      status: 'paused',
+      spendKurus: 890_000,
+      cpaKurus: 22_250,
+      ctrBasisPoints: 200,
+      impressions: 12_000,
+      clicks: 240,
+      conversions: 40,
+      agentLogReason:
+        'AGGRESSIVE varyantı yayına alındı: indirim + kıtlık vurgusu ile yüksek CTR hedeflendi.',
+    },
+    {
+      externalId: '4008~5008',
+      adGroupId: '4008',
+      adId: '5008',
+      strategyType: 'STORY',
+      adText:
+        'Bir Anadolu dokumacısının elinden çıkan her düğüm bir hikâye taşır.\nHalıshalı, ustanın tezgâhındaki o sabırlı sesi evine getiriyor.',
+      imagePrompt:
+        'Soft natural light on a Turkish weaver bent over a vertical loom, close-up of hands and yarn detail.',
+      status: 'active',
+      spendKurus: 510_000,
+      cpaKurus: 2_550,
+      ctrBasisPoints: 400,
+      impressions: 15_000,
+      clicks: 600,
+      conversions: 200,
+      agentLogReason:
+        'STORY varyantı yayına alındı: el dokuma zanaatına nostaljik atıfla yüksek-değerli müşteri hedeflendi.',
+    },
+    {
+      externalId: '4009~5009',
+      adGroupId: '4009',
+      adId: '5009',
+      strategyType: 'TECHNICAL',
+      adText:
+        'Halıshalı: %100 saf Anadolu yünü, çift düğüm, dm² başına 90 düğüm yoğunluğu.\nDoğal bitki boyaması, ISO 9001 sertifikalı üretim, 25 yıl renk garantisi.',
+      imagePrompt:
+        'Macro shot of a hand-knotted wool rug detail next to a spec card listing knot density and certification.',
+      status: 'active',
+      spendKurus: 420_000,
+      cpaKurus: 5_250,
+      ctrBasisPoints: 300,
+      impressions: 10_000,
+      clicks: 300,
+      conversions: 80,
+      agentLogReason:
+        'TECHNICAL varyantı yayına alındı: yün cinsi ve düğüm yoğunluğu odaklı copy ile uzman alıcı hedeflendi.',
+    },
+  ],
+  optimizerLogs: [
+    {
+      agentName: 'optimizer',
+      action: 'PAUSED_AD',
+      targetAdIndex: 0,
+      reason:
+        "AGGRESSIVE varyantı duraklatıldı: CPA ₺222,50 — kampanya medyan CPA'sının 5,2× üzerinde, son 48 saatte 40 dönüşüme rağmen harcama 890 ₺'yi aştı. Stop-loss tetiklendi.",
+      confidence: 0.92,
+      hoursAgo: 14,
+    },
+    {
+      agentName: 'optimizer',
+      action: 'REALLOCATED_BUDGET',
+      targetAdIndex: 0,
+      reallocatedToAdIndex: 1,
+      reason:
+        'Duraklatılan AGGRESSIVE varyantının günlük 200 ₺ bütçesi STORY varyantına aktarıldı: STORY CPA ₺25,50 ile kampanya medyanının çok altında, ölçeklenmeye uygun.',
+      confidence: 0.88,
+      hoursAgo: 13,
+    },
+  ],
+};
+
+const ALL_CAMPAIGNS: readonly CampaignSpec[] = [
+  DEMLIK_CAMPAIGN,
+  NARDANA_CAMPAIGN,
+  HALISHALI_CAMPAIGN,
 ] as const;
 
 const BUCKET_COUNT = 8;
 const HOURS_PER_BUCKET = 6;
 const SEED = 0x1eaf_5eed; // stable across reruns
 
-// Internal sanity check — script will hard-fail at startup if any total
-// doesn't match what the AGENT_DECISIONS table promises.
-for (const ad of ADS) {
+/**
+ * Sanity check for the original Demlik campaign only — the catastrophic
+ * loser story relies on those exact totals. The other campaigns set
+ * `ctrBasisPoints`/`cpaKurus` independently (Nardana is all-null, Halıshalı
+ * carries a paused ad with frozen numbers) so a generic validator would
+ * have to special-case them; cheaper to keep the check tight.
+ */
+for (const ad of DEMLIK_CAMPAIGN.ads) {
+  if (ad.ctrBasisPoints === null) continue;
   const computedCtrBp = Math.round((ad.clicks / ad.impressions) * 10_000);
   if (computedCtrBp !== ad.ctrBasisPoints) {
     throw new Error(
       `Bad spec for ${ad.externalId}: computed ctrBp=${computedCtrBp} != ${ad.ctrBasisPoints}`,
     );
   }
-  if (ad.conversions > 0) {
+  if (ad.conversions > 0 && ad.cpaKurus !== null) {
     const computedCpa = Math.round(ad.spendKurus / ad.conversions);
     if (computedCpa !== ad.cpaKurus) {
       throw new Error(
@@ -178,6 +415,9 @@ for (const ad of ADS) {
     }
   }
 }
+
+/** Pinned seed end — every snapshot / agent_log timestamp anchors here. */
+const SEED_END_ISO = '2026-05-19T00:00:00.000Z';
 
 // ---------------------------------------------------------------------------
 // Colors (TTY only)
@@ -491,9 +731,12 @@ async function wipeDemoCampaignRows(cf: Cloudflare): Promise<void> {
   // Foreign-key cascades from `campaigns` would handle child tables in SQLite
   // *if* foreign_keys=ON.  D1 currently runs with foreign_keys OFF, so be
   // explicit and tear children down ourselves.
-  const findIds = await cf.d1<{ id: number }>('SELECT id FROM campaigns WHERE product_url = ?', [
-    DEMO_CAMPAIGN.productUrl,
-  ]);
+  const productUrls = ALL_CAMPAIGNS.map((cmp) => cmp.productUrl);
+  const placeholdersUrl = productUrls.map(() => '?').join(',');
+  const findIds = await cf.d1<{ id: number }>(
+    `SELECT id FROM campaigns WHERE product_url IN (${placeholdersUrl})`,
+    productUrls,
+  );
   const campaignIds = findIds.results.map((r) => r.id);
   if (campaignIds.length === 0) {
     info('  no pre-existing demo campaign rows to wipe');
@@ -505,35 +748,44 @@ async function wipeDemoCampaignRows(cf: Cloudflare): Promise<void> {
     `DELETE FROM metric_snapshots WHERE ad_id IN (SELECT id FROM ads WHERE campaign_id IN (${placeholders}))`,
     campaignIds,
   );
+  await cf.d1(`DELETE FROM notifications WHERE campaign_id IN (${placeholders})`, campaignIds);
   await cf.d1(`DELETE FROM agent_logs WHERE campaign_id IN (${placeholders})`, campaignIds);
   await cf.d1(`DELETE FROM ads WHERE campaign_id IN (${placeholders})`, campaignIds);
   await cf.d1(`DELETE FROM campaigns WHERE id IN (${placeholders})`, campaignIds);
   info(`  wiped ${campaignIds.length} pre-existing demo campaign row(s) and children`);
 }
 
-async function insertCampaign(cf: Cloudflare, userId: number): Promise<number> {
+async function insertCampaign(
+  cf: Cloudflare,
+  userId: number,
+  campaign: CampaignSpec,
+): Promise<number> {
   const insert = await cf.d1<{ id: number }>(
     `INSERT INTO campaigns (
        user_id, product_url, mode, daily_budget_kurus, status, do_id
      )
-     VALUES (?, ?, 'OTOPILOT', ?, 'active', ?)
+     VALUES (?, ?, ?, ?, 'active', ?)
      RETURNING id`,
-    [userId, DEMO_CAMPAIGN.productUrl, DEMO_CAMPAIGN.dailyBudgetKurus, DEMO_CAMPAIGN.externalId],
+    [userId, campaign.productUrl, campaign.mode, campaign.dailyBudgetKurus, campaign.campaignId],
   );
   const row = insert.results[0];
   if (!row) throw new Error('Campaign insert returned no row');
   return row.id;
 }
 
-async function insertAds(cf: Cloudflare, campaignId: number): Promise<number[]> {
+async function insertAds(
+  cf: Cloudflare,
+  campaignId: number,
+  ads: readonly DemoAdSpec[],
+): Promise<number[]> {
   const ids: number[] = [];
-  for (const ad of ADS) {
+  for (const ad of ads) {
     const insert = await cf.d1<{ id: number }>(
       `INSERT INTO ads (
          campaign_id, strategy_type, ad_text, image_prompt,
          google_ad_id, status, spend_kurus, cpa_kurus, ctr_basis_points
        )
-       VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id`,
       [
         campaignId,
@@ -541,6 +793,7 @@ async function insertAds(cf: Cloudflare, campaignId: number): Promise<number[]> 
         ad.adText,
         ad.imagePrompt,
         ad.externalId,
+        ad.status,
         ad.spendKurus,
         ad.cpaKurus,
         ad.ctrBasisPoints,
@@ -549,7 +802,7 @@ async function insertAds(cf: Cloudflare, campaignId: number): Promise<number[]> 
     const row = insert.results[0];
     if (!row) throw new Error(`Ad insert returned no row for ${ad.externalId}`);
     ids.push(row.id);
-    ok(`ad ${ad.strategyType.padEnd(11)} -> id=${row.id} (${ad.externalId})`);
+    ok(`ad ${ad.strategyType.padEnd(11)} -> id=${row.id} (${ad.externalId}) status=${ad.status}`);
   }
   return ids;
 }
@@ -557,10 +810,14 @@ async function insertAds(cf: Cloudflare, campaignId: number): Promise<number[]> 
 async function insertAgentLogs(
   cf: Cloudflare,
   campaignId: number,
+  ads: readonly DemoAdSpec[],
   adIds: ReadonlyArray<number>,
+  optimizerLogs: readonly OptimizerLogSpec[] = [],
 ): Promise<void> {
-  for (let i = 0; i < ADS.length; i++) {
-    const ad = ADS[i];
+  // Publisher's CREATED_AD trail. `created_at` is left to D1's default —
+  // it stamps "now" which is fine for any audit timeline ordering.
+  for (let i = 0; i < ads.length; i++) {
+    const ad = ads[i];
     const adId = adIds[i];
     if (!ad || adId === undefined) throw new Error('unreachable');
     await cf.d1(
@@ -571,36 +828,108 @@ async function insertAgentLogs(
       [campaignId, String(adId), ad.agentLogReason],
     );
   }
+
+  // Optimizer follow-up rows (PAUSED_AD, REALLOCATED_BUDGET) with pinned
+  // `created_at` so the activity timeline reflects the seeded narrative.
+  const endMs = new Date(SEED_END_ISO).getTime();
+  for (const log of optimizerLogs) {
+    const targetAdId = adIds[log.targetAdIndex];
+    if (targetAdId === undefined) {
+      throw new Error(`Optimizer log targets out-of-range ad index ${log.targetAdIndex}`);
+    }
+    const createdAt = new Date(endMs - log.hoursAgo * 3600 * 1000).toISOString();
+
+    // `target_ref` formatting follows the live writers:
+    //   - PAUSED_AD: single ad id (matches optimizer-agent + publisher-agent).
+    //   - REALLOCATED_BUDGET: `<sourceAdId>-><targetAdId>` (matches publisher-agent
+    //     reallocateBudget handler). Delta amount stays in `reason`.
+    let targetRef = String(targetAdId);
+    if (log.action === 'REALLOCATED_BUDGET' && log.reallocatedToAdIndex !== undefined) {
+      const reallocTargetAdId = adIds[log.reallocatedToAdIndex];
+      if (reallocTargetAdId === undefined) {
+        throw new Error(
+          `Optimizer reallocation targets out-of-range ad index ${log.reallocatedToAdIndex}`,
+        );
+      }
+      targetRef = `${targetAdId}->${reallocTargetAdId}`;
+    }
+
+    await cf.d1(
+      `INSERT INTO agent_logs (
+         campaign_id, agent_name, action_taken, target_ref, reason, confidence,
+         gemini_request_id, created_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+      [campaignId, log.agentName, log.action, targetRef, log.reason, log.confidence, createdAt],
+    );
+  }
 }
 
-async function insertMetricSnapshots(cf: Cloudflare, adIds: ReadonlyArray<number>): Promise<void> {
-  // PRNG is seeded per-script-run, not per-ad, so re-running yields identical
-  // distributions for every bucket of every ad.
-  const rng = mulberry32(SEED);
-  const end = new Date('2026-05-19T00:00:00.000Z'); // pinned so snapshots are stable
-  const totalRows = ADS.length * BUCKET_COUNT;
-  info(`  inserting ${totalRows} metric_snapshots (${ADS.length} ads × ${BUCKET_COUNT} buckets)`);
+async function insertMetricSnapshots(
+  cf: Cloudflare,
+  campaign: CampaignSpec,
+  adIds: ReadonlyArray<number>,
+  rng: () => number,
+): Promise<void> {
+  const ads = campaign.ads;
+  const end = new Date(SEED_END_ISO);
 
-  for (let i = 0; i < ADS.length; i++) {
-    const ad = ADS[i];
+  // Find any "paused N h ago" hint from the optimizer logs so the paused
+  // ad's snapshots stop at the right point in time. If multiple
+  // PAUSED_AD entries exist (won't happen in this seed but be defensive)
+  // we take the most recent one.
+  const pauseHoursByAdIndex = new Map<number, number>();
+  for (const log of campaign.optimizerLogs ?? []) {
+    if (log.action !== 'PAUSED_AD') continue;
+    const prev = pauseHoursByAdIndex.get(log.targetAdIndex);
+    if (prev === undefined || log.hoursAgo < prev) {
+      pauseHoursByAdIndex.set(log.targetAdIndex, log.hoursAgo);
+    }
+  }
+
+  let activeRows = 0;
+  for (let i = 0; i < ads.length; i++) {
+    const ad = ads[i];
     const adId = adIds[i];
     if (!ad || adId === undefined) throw new Error('unreachable');
 
-    const impBuckets = distribute(ad.impressions, BUCKET_COUNT, rng);
-    const clkBuckets = distribute(ad.clicks, BUCKET_COUNT, rng);
-    const convBuckets = distribute(ad.conversions, BUCKET_COUNT, rng);
-    const spendBuckets = distribute(ad.spendKurus, BUCKET_COUNT, rng);
+    // Zero-data campaigns (Nardana) don't need any snapshot rows — the
+    // dashboard treats absence of snapshots as "no data yet".
+    if (ad.impressions === 0 && ad.clicks === 0 && ad.spendKurus === 0) continue;
 
-    // Each bucket's snapshot_at is the END of the bucket (i.e. running totals
-    // would be sums of older + this bucket).  We just record per-bucket deltas.
+    // Distribute the per-ad totals across the snapshot buckets that
+    // make sense for this ad's lifecycle.
+    const pauseHoursAgo = pauseHoursByAdIndex.get(i);
+    const useBuckets: number[] = [];
     for (let b = 0; b < BUCKET_COUNT; b++) {
-      // Bucket index 0 is the oldest (48 h ago), BUCKET_COUNT-1 is the newest.
+      const hoursAgo = (BUCKET_COUNT - 1 - b) * HOURS_PER_BUCKET;
+      if (pauseHoursAgo === undefined) {
+        useBuckets.push(b);
+        continue;
+      }
+      // Paused ad: only buckets covering the 24 h leading up to the pause
+      // carry data. The remaining (newer-than-pause and oldest > 24 h
+      // before pause) buckets stay absent — the dashboard shows the
+      // catastrophic CPA "frozen" at pause time.
+      if (hoursAgo >= pauseHoursAgo && hoursAgo < pauseHoursAgo + 24) {
+        useBuckets.push(b);
+      }
+    }
+    if (useBuckets.length === 0) continue;
+
+    const impBuckets = distribute(ad.impressions, useBuckets.length, rng);
+    const clkBuckets = distribute(ad.clicks, useBuckets.length, rng);
+    const convBuckets = distribute(ad.conversions, useBuckets.length, rng);
+    const spendBuckets = distribute(ad.spendKurus, useBuckets.length, rng);
+
+    for (let k = 0; k < useBuckets.length; k++) {
+      const b = useBuckets[k] ?? 0;
       const hoursAgo = (BUCKET_COUNT - 1 - b) * HOURS_PER_BUCKET;
       const snapshotAt = new Date(end.getTime() - hoursAgo * 3600 * 1000);
-      const imp = impBuckets[b] ?? 0;
-      const clk = clkBuckets[b] ?? 0;
-      const conv = convBuckets[b] ?? 0;
-      const spend = spendBuckets[b] ?? 0;
+      const imp = impBuckets[k] ?? 0;
+      const clk = clkBuckets[k] ?? 0;
+      const conv = convBuckets[k] ?? 0;
+      const spend = spendBuckets[k] ?? 0;
       await cf.d1(
         `INSERT INTO metric_snapshots (
            ad_id, snapshot_at, impressions, clicks, conversions, spend_kurus
@@ -608,46 +937,39 @@ async function insertMetricSnapshots(cf: Cloudflare, adIds: ReadonlyArray<number
          VALUES (?, ?, ?, ?, ?, ?)`,
         [adId, snapshotAt.toISOString(), imp, clk, conv, spend],
       );
+      activeRows++;
     }
   }
+
+  info(`  ${campaign.displayName} -> ${activeRows} metric_snapshots`);
 }
 
-async function writeKvDemoState(cf: Cloudflare): Promise<void> {
-  const nowIso = new Date('2026-05-19T00:00:00.000Z').toISOString();
-  const cid = GADS.customerId;
-  const budgetResourceName = `customers/${cid}/campaignBudgets/${GADS.budgetId}`;
-  const campaignResourceName = `customers/${cid}/campaigns/${GADS.campaignId}`;
-  // Daily budget in micros (Google API unit). 100_000 kurus = 1000 TRY = 1_000_000_000 micros.
-  const dailyMicros = (DEMO_CAMPAIGN.dailyBudgetKurus / 100) * 1_000_000;
+function buildKvPairsForCampaign(campaign: CampaignSpec): Array<{ key: string; value: string }> {
+  const nowIso = SEED_END_ISO;
+  const cid = GADS_CUSTOMER_ID;
+  const budgetResourceName = `customers/${cid}/campaignBudgets/${campaign.budgetId}`;
+  const campaignResourceName = `customers/${cid}/campaigns/${campaign.campaignId}`;
+  // Daily budget in micros (Google API unit). 1 kurus = 10_000 micros.
+  const dailyMicros = campaign.dailyBudgetKurus * 10_000;
 
   const pairs: Array<{ key: string; value: string }> = [
     {
-      key: `gads:customer:${cid}`,
-      value: JSON.stringify({
-        resourceName: `customers/${cid}`,
-        id: cid,
-        descriptiveName: CONNECTED_ACCOUNT.accountLabel,
-        currencyCode: 'TRY',
-        timeZone: 'Europe/Istanbul',
-      }),
-    },
-    {
-      key: `gads:budget:${cid}:${GADS.budgetId}`,
+      key: `gads:budget:${cid}:${campaign.budgetId}`,
       value: JSON.stringify({
         resourceName: budgetResourceName,
-        id: GADS.budgetId,
-        name: `${DEMO_CAMPAIGN.displayName} budget`,
+        id: campaign.budgetId,
+        name: `${campaign.displayName} budget`,
         amountMicros: dailyMicros,
         deliveryMethod: 'STANDARD',
         createdAt: nowIso,
       }),
     },
     {
-      key: `gads:campaign:${cid}:${GADS.campaignId}`,
+      key: `gads:campaign:${cid}:${campaign.campaignId}`,
       value: JSON.stringify({
         resourceName: campaignResourceName,
-        id: GADS.campaignId,
-        name: DEMO_CAMPAIGN.displayName,
+        id: campaign.campaignId,
+        name: campaign.displayName,
         status: 'ENABLED',
         advertisingChannelType: 'SEARCH',
         // The googleAds:search budget-lookup handler reads this field.
@@ -662,11 +984,15 @@ async function writeKvDemoState(cf: Cloudflare): Promise<void> {
     },
   ];
 
-  for (const ad of ADS) {
+  for (const ad of campaign.ads) {
     const adGroupResourceName = `customers/${cid}/adGroups/${ad.adGroupId}`;
     const adResourceName = `customers/${cid}/adGroupAds/${ad.externalId}`;
     const [headline, ...bodyParts] = ad.adText.split('\n');
     const body = bodyParts.join(' ').trim() || ad.adText;
+    // Google uses uppercase ENABLED / PAUSED for ad-level status — match
+    // that on the KV record so `pauseAd`/`resumeAd` round-trips stay
+    // consistent across seed and runtime mutations.
+    const gAdsStatus = ad.status === 'paused' ? 'PAUSED' : 'ENABLED';
 
     pairs.push({
       key: `gads:adGroup:${cid}:${ad.adGroupId}`,
@@ -687,9 +1013,9 @@ async function writeKvDemoState(cf: Cloudflare): Promise<void> {
       value: JSON.stringify({
         resourceName: adResourceName,
         adGroup: adGroupResourceName,
-        status: 'ENABLED',
+        status: gAdsStatus,
         ad: {
-          final_urls: [DEMO_CAMPAIGN.productUrl],
+          final_urls: [campaign.productUrl],
           responsive_search_ad: {
             headlines: [
               { text: (headline ?? 'Leylek').slice(0, 30) },
@@ -709,7 +1035,8 @@ async function writeKvDemoState(cf: Cloudflare): Promise<void> {
     // Metrics record consumed by googleAds:search query 2. We key by the
     // bare numeric ad id so the GAQL `WHERE ad_group_ad.ad.id = <id>`
     // matches via the handler's direct lookup; values are strings to
-    // mirror Google's wire shape.
+    // mirror Google's wire shape. Zero-data ads still get a record so the
+    // drift cron sees `impressions === '0'` and skips them.
     pairs.push({
       key: `gads:metrics:${cid}:${ad.adId}`,
       value: JSON.stringify({
@@ -723,8 +1050,29 @@ async function writeKvDemoState(cf: Cloudflare): Promise<void> {
     });
   }
 
+  return pairs;
+}
+
+async function writeKvDemoState(cf: Cloudflare): Promise<void> {
+  const cid = GADS_CUSTOMER_ID;
+  const pairs: Array<{ key: string; value: string }> = [
+    {
+      key: `gads:customer:${cid}`,
+      value: JSON.stringify({
+        resourceName: `customers/${cid}`,
+        id: cid,
+        descriptiveName: CONNECTED_ACCOUNT.accountLabel,
+        currencyCode: 'TRY',
+        timeZone: 'Europe/Istanbul',
+      }),
+    },
+  ];
+  for (const campaign of ALL_CAMPAIGNS) {
+    pairs.push(...buildKvPairsForCampaign(campaign));
+  }
+
   await cf.kvBulkPut(pairs);
-  ok(`KV bulk wrote ${pairs.length} gads:* keys`);
+  ok(`KV bulk wrote ${pairs.length} gads:* keys across ${ALL_CAMPAIGNS.length} campaign(s)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -780,41 +1128,50 @@ async function main(): Promise<void> {
   );
 
   // 1. User
-  info('1/6 upserting demo user');
+  info('1/5 upserting demo user');
   const userId = await upsertUser(cf);
   ok(`user ${DEMO_USER.email} -> id=${userId}`);
 
   // 2. Connected account
-  info('2/6 upserting connected_accounts row');
+  info('2/5 upserting connected_accounts row');
   const accountRowId = await upsertConnectedAccount(cf, userId);
   ok(`connected_account google_ads:${CONNECTED_ACCOUNT.externalId} -> id=${accountRowId}`);
 
-  // 3. Wipe + insert campaign
-  info('3/6 wiping any previous demo campaign state');
+  // 3. Wipe everything campaign-side, then re-insert each campaign.
+  info('3/5 wiping any previous demo campaign state');
   await wipeDemoCampaignRows(cf);
 
-  info('4/6 inserting fresh campaign');
-  const campaignId = await insertCampaign(cf, userId);
-  ok(`campaign ${DEMO_CAMPAIGN.externalId} -> id=${campaignId}`);
+  info(`4/5 inserting ${ALL_CAMPAIGNS.length} campaigns + ads + agent_logs`);
+  // Single PRNG instance threaded through every campaign so the bucket
+  // distribution is byte-stable across reruns AND across campaigns.
+  const rng = mulberry32(SEED);
+  const summary: Array<{
+    displayName: string;
+    campaignId: number;
+    adIds: number[];
+  }> = [];
+  for (const campaign of ALL_CAMPAIGNS) {
+    info(`  campaign: ${campaign.displayName} (${campaign.mode}, do_id=${campaign.campaignId})`);
+    const insertedId = await insertCampaign(cf, userId, campaign);
+    const adIds = await insertAds(cf, insertedId, campaign.ads);
+    await insertAgentLogs(cf, insertedId, campaign.ads, adIds, campaign.optimizerLogs);
+    await insertMetricSnapshots(cf, campaign, adIds, rng);
+    summary.push({ displayName: campaign.displayName, campaignId: insertedId, adIds });
+  }
 
-  // 4. Ads + agent_logs
-  info('5/6 inserting 3 ads + CREATED_AD agent_logs');
-  const adIds = await insertAds(cf, campaignId);
-  await insertAgentLogs(cf, campaignId, adIds);
-  ok(`agent_logs (CREATED_AD × ${adIds.length})`);
-
-  // 5. Metric snapshots
-  info('6/6 inserting metric_snapshots + writing gads:* KV entries');
-  await insertMetricSnapshots(cf, adIds);
-  ok('metric_snapshots written');
-
+  // 4. KV state for all campaigns (1 customer record + per-campaign budget /
+  // campaign / ad-group / ad / metrics).
+  info('5/5 writing gads:* KV entries');
   await writeKvDemoState(cf);
 
   console.log();
-  console.log(
-    `${c.green}${c.bold}✓ Seeded${c.reset} ` +
-      `user=${userId}, campaign=${campaignId}, ads=[${adIds.join(', ')}]`,
-  );
+  console.log(`${c.green}${c.bold}✓ Seeded${c.reset} user=${userId}`);
+  for (const row of summary) {
+    console.log(
+      `  ${c.cyan}${row.displayName}${c.reset} ` +
+        `-> campaign=${row.campaignId}, ads=[${row.adIds.join(', ')}]`,
+    );
+  }
 }
 
 main().catch((err: unknown) => {
